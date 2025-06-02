@@ -2,12 +2,12 @@
 
   command = "echo 'No build command needed for this example, just deploying functions and static site'" 
   
-  publish = "." # <--- 將這一行從 "your_frontend_build_output_directory" 修改為 "."
+  publish = "." 
 
   functions = "netlify/functions" 
 
 [functions]
-  directory = "netlify/functions/"
+  directory = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"
