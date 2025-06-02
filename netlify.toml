@@ -1,0 +1,20 @@
+[build]
+  # 發布目錄
+  publish = "."
+  
+  # 構建命令（對於靜態網站可以留空）
+  command = ""
+
+[functions]
+  # Python 函數目錄
+  directory = "netlify/functions/"
+
+# 重定向規則
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# 環境變數（本地開發用）
+[build.environment]
+  PYTHONPATH = "./netlify/functions"
