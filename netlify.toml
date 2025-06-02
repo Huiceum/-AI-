@@ -1,9 +1,7 @@
 [build]
-  # 發布目錄
-  publish = "."
-  
-  # 構建命令（對於靜態網站可以留空）
-  command = ""
+  command = "echo 'No build command needed for this example, just deploying functions and static site'" # 或你的前端建置指令
+  publish = "your_frontend_build_output_directory" # 例如 "dist" 或 "public"
+  functions = "netlify/functions" # 確保這裡指向您的函式資料夾
 
 [functions]
   # Python 函數目錄
