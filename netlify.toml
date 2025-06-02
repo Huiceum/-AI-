@@ -1,19 +1,5 @@
-[build]
+    [build]
+    functions = "netlify/functions"
 
-  command = "echo 'No build command needed for this example, just deploying functions and static site'" 
-  
-  publish = "." 
-
-  functions = "netlify/functions/" 
-
-[functions]
-  directory = "netlify/functions/"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-[build.environment]
-  PYTHONPATH = "./netlify/functions/"
-
+    [functions]
+    node_bundler = "esbuild"
