@@ -1,18 +1,19 @@
 [build]
-  command = "echo 'No build command needed for this example, just deploying functions and static site'" # 或你的前端建置指令
-  publish = "your_frontend_build_output_directory" # 例如 "dist" 或 "public"
-  functions = "netlify/functions" # 確保這裡指向您的函式資料夾
+
+  command = "echo 'No build command needed for this example, just deploying functions and static site'" 
+  
+  publish = "." # <--- 將這一行從 "your_frontend_build_output_directory" 修改為 "."
+
+  functions = "netlify/functions" 
 
 [functions]
-  # Python 函數目錄
   directory = "netlify/functions/"
 
-# 重定向規則
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
 
-# 環境變數（本地開發用）
 [build.environment]
   PYTHONPATH = "./netlify/functions"
+
