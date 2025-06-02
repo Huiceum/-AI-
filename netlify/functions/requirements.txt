@@ -1,0 +1,2 @@
+# Netlify Functions Python 運行時需要的依賴
+# 注意：Netlify Functions 有預設的 Python 環境，通常不需要額外依賴
