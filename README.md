@@ -49,15 +49,32 @@
 ## 專案結構
 
 ```
-ai-dialogue-system/
-├── app.py                 # Flask 主應用程式
-├── requirements.txt       # Python 依賴套件
-├── Dockerfile            # Docker 容器設定
-├── render.yaml           # Render 部署設定
-├── .env.example          # 環境變數範例
+-AI-/
+├── images/
+│   ├── 1.gif
+│   ├── 2.png
+│   ├── 3.png
+│   └── 4.png
+├── static/
+│   └── image/
+│       ├── icon/
+│       │   ├── icon-1.png
+│       │   ├── icon-2.png
+│       │   └── ...（共12張圖）
+│       └── role/
+│           ├── role-1.png
+│           ├── role-2.png
+│           └── ...（共19張圖）
 ├── templates/
-│   └── index.html        # 前端頁面
-└── README.md             # 專案說明
+│   └── index.html
+├── .AI-.code-workspace
+├── .env
+├── Dockerfile
+├── render.yaml
+├── requirements.txt
+├── app.py
+└── README.md
+
 ```
 
 ### 自訂功能
