@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-role-chat
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false  # 手動在 Render 控制台設定
+    domains:
+      - ai-role-chat.onrender.com  # 可自訂域名
