@@ -181,7 +181,7 @@
         .avatar-option {
             width: 40px;
             height: 40px;
-            border-radius: 5%;
+            border-radius: 50%;
             border: 2px solid transparent;
             cursor: pointer;
             transition: border-color 0.2s;
@@ -445,7 +445,7 @@
 
             <div class="form-group">
                 <label for="role1">角色一名稱</label>
-                <input type="text" id="role1" placeholder="例如：伊隆·馬斯克">
+                <input type="text" id="role1" placeholder="請輸入第一位要扮演的角色">
                 <div class="avatar-selector">
                     <label>角色一頭像</label>
                     <div class="avatar-grid" id="avatar1Grid"></div>
@@ -454,7 +454,7 @@
 
             <div class="form-group">
                 <label for="role2">角色二名稱</label>
-                <input type="text" id="role2" placeholder="例如：馬克·祖克柏">
+                <input type="text" id="role2" placeholder="請輸入第二位要扮演的角色">
                 <div class="avatar-selector">
                     <label>角色二頭像</label>
                     <div class="avatar-grid" id="avatar2Grid"></div>
@@ -525,33 +525,122 @@
             totalMessages: 0
         };
 
-        // 初始化頭像選擇器
-        function initAvatarSelectors() {
+        // 測試圖片路徑是否存在
+        function testImagePath(path) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = path;
+            });
+        }
+
+        // 尋找正確的圖片路徑
+        async function findCorrectImagePath() {
+            const possiblePaths = [
+                'image/role/role-1.png',
+                './image/role/role-1.png',
+                '/image/role/role-1.png',
+                'images/role/role-1.png',
+                './images/role/role-1.png',
+                '/images/role/role-1.png',
+                'assets/image/role/role-1.png',
+                './assets/image/role/role-1.png',
+                '/assets/image/role/role-1.png',
+                'public/image/role/role-1.png',
+                './public/image/role/role-1.png',
+                '/public/image/role/role-1.png'
+            ];
+
+            console.log('正在測試圖片路徑...');
+            
+            for (const path of possiblePaths) {
+                const exists = await testImagePath(path);
+                if (exists) {
+                    console.log(`找到正確路徑: ${path}`);
+                    return path.replace('role-1.png', 'role-{i}.png');
+                }
+            }
+            
+            console.warn('未找到任何有效的圖片路徑，將使用佔位符');
+            return null;
+        }
+
+        // 初始化頭像選擇器（改進版）
+        async function initAvatarSelectors() {
             const avatar1Grid = document.getElementById('avatar1Grid');
             const avatar2Grid = document.getElementById('avatar2Grid');
             
+            // 先找出正確的路徑格式
+            const pathTemplate = await findCorrectImagePath();
+            
             // 生成1-19的頭像選項
             for (let i = 1; i <= 19; i++) {
-                const imagePath = `image/role/role-${i}.png`;
+                const imagePath = pathTemplate ? pathTemplate.replace('{i}', i) : null;
                 
                 // 角色一頭像
                 const avatar1 = document.createElement('img');
-                avatar1.src = imagePath;
                 avatar1.className = 'avatar-option';
-                avatar1.dataset.avatar = imagePath;
+                avatar1.dataset.avatar = imagePath || `placeholder-${i}`;
                 if (i === 1) avatar1.classList.add('selected');
-                avatar1.onclick = () => selectAvatar(1, imagePath, avatar1);
+                avatar1.onclick = () => selectAvatar(1, imagePath || `placeholder-${i}`, avatar1);
+                
+                if (imagePath) {
+                    avatar1.onerror = function() {
+                        console.warn(`無法載入頭像: ${imagePath}`);
+                        this.src = createPlaceholderImage(i);
+                        this.dataset.avatar = `placeholder-${i}`;
+                    };
+                    avatar1.src = imagePath;
+                } else {
+                    avatar1.src = createPlaceholderImage(i);
+                }
+                
                 avatar1Grid.appendChild(avatar1);
                 
                 // 角色二頭像
                 const avatar2 = document.createElement('img');
-                avatar2.src = imagePath;
                 avatar2.className = 'avatar-option';
-                avatar2.dataset.avatar = imagePath;
+                avatar2.dataset.avatar = imagePath || `placeholder-${i}`;
                 if (i === 2) avatar2.classList.add('selected');
-                avatar2.onclick = () => selectAvatar(2, imagePath, avatar2);
+                avatar2.onclick = () => selectAvatar(2, imagePath || `placeholder-${i}`, avatar2);
+                
+                if (imagePath) {
+                    avatar2.onerror = function() {
+                        console.warn(`無法載入頭像: ${imagePath}`);
+                        this.src = createPlaceholderImage(i);
+                        this.dataset.avatar = `placeholder-${i}`;
+                    };
+                    avatar2.src = imagePath;
+                } else {
+                    avatar2.src = createPlaceholderImage(i);
+                }
+                
                 avatar2Grid.appendChild(avatar2);
             }
+        }
+
+        // 創建佔位符圖片
+        function createPlaceholderImage(number) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 40;
+            canvas.height = 40;
+            const ctx = canvas.getContext('2d');
+            
+            // 繪製圓形背景
+            ctx.beginPath();
+            ctx.arc(20, 20, 20, 0, 2 * Math.PI);
+            ctx.fillStyle = '#e5e7eb';
+            ctx.fill();
+            
+            // 繪製數字
+            ctx.fillStyle = '#6b7280';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(number.toString(), 20, 20);
+            
+            return canvas.toDataURL();
         }
 
         function selectAvatar(roleNumber, avatarPath, element) {
@@ -831,12 +920,12 @@
         }
 
         // 頁面載入時初始化
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // 設置初始主題
             document.body.setAttribute('data-theme', 'light');
             
-            // 初始化頭像選擇器
-            initAvatarSelectors();
+            // 初始化頭像選擇器（異步）
+            await initAvatarSelectors();
             
             // 初始化 WebSocket 連接
             initSocket();
