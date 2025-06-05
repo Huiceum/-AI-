@@ -848,7 +848,7 @@
         });
 
 
-            // 對話記錄儲存模組
+            // 對話歷史記錄模組
 (function() {
     'use strict';
     
@@ -857,7 +857,6 @@
     
     // 儲存管理器
     const StorageManager = {
-        // 獲取所有記錄
         getAllRecords() {
             try {
                 const records = localStorage.getItem(STORAGE_KEY);
@@ -868,57 +867,46 @@
             }
         },
         
-        // 儲存記錄
         saveRecord(record) {
             try {
                 let records = this.getAllRecords();
                 
-                // 生成唯一代號
                 record.id = this.generateRecordId();
                 record.timestamp = new Date().toISOString();
                 
-                // 添加到記錄列表開頭
                 records.unshift(record);
                 
-                // 限制最多10筆記錄
                 if (records.length > MAX_RECORDS) {
                     records = records.slice(0, MAX_RECORDS);
                 }
                 
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
                 console.log(`對話記錄已儲存，代號: ${record.id}`);
+                
+                // 更新歷史記錄UI
+                updateHistoryPanel();
+                
                 return record.id;
             } catch (error) {
                 console.error('儲存記錄失敗:', error);
             }
         },
         
-        // 生成記錄代號
         generateRecordId() {
             const timestamp = Date.now();
             const random = Math.random().toString(36).substr(2, 5);
             return `CONV_${timestamp}_${random}`.toUpperCase();
         },
         
-        // 刪除記錄
         deleteRecord(recordId) {
             try {
                 let records = this.getAllRecords();
                 records = records.filter(record => record.id !== recordId);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+                updateHistoryPanel();
                 console.log(`記錄 ${recordId} 已刪除`);
             } catch (error) {
                 console.error('刪除記錄失敗:', error);
-            }
-        },
-        
-        // 清空所有記錄
-        clearAllRecords() {
-            try {
-                localStorage.removeItem(STORAGE_KEY);
-                console.log('所有對話記錄已清空');
-            } catch (error) {
-                console.error('清空記錄失敗:', error);
             }
         }
     };
@@ -927,7 +915,6 @@
     const ConversationRecorder = {
         currentSession: null,
         
-        // 開始新的記錄會話
         startRecording(sessionData) {
             this.currentSession = {
                 role1Name: sessionData.role1Name,
@@ -941,10 +928,8 @@
                 startTime: new Date().toISOString(),
                 status: 'recording'
             };
-            console.log('開始記錄新的對話會話');
         },
         
-        // 添加訊息到當前會話
         addMessage(messageData) {
             if (!this.currentSession) return;
             
@@ -957,55 +942,429 @@
             });
         },
         
-        // 完成記錄並儲存
         finishRecording() {
             if (!this.currentSession) return;
             
             this.currentSession.endTime = new Date().toISOString();
             this.currentSession.status = 'completed';
             
-            // 計算對話統計
             this.currentSession.stats = {
                 totalMessages: this.currentSession.messages.length,
                 actualRounds: Math.ceil(this.currentSession.messages.length / 2),
                 duration: this.calculateDuration()
             };
             
-            // 儲存記錄
             const recordId = StorageManager.saveRecord({ ...this.currentSession });
-            
-            // 清空當前會話
             this.currentSession = null;
-            
             return recordId;
         },
         
-        // 計算對話持續時間
         calculateDuration() {
             if (!this.currentSession.startTime || !this.currentSession.endTime) return 0;
-            
             const start = new Date(this.currentSession.startTime);
             const end = new Date(this.currentSession.endTime);
-            return Math.round((end - start) / 1000); // 返回秒數
-        },
-        
-        // 取消當前記錄
-        cancelRecording() {
-            this.currentSession = null;
-            console.log('對話記錄已取消');
+            return Math.round((end - start) / 1000);
         }
     };
     
-    // 與原始代碼整合的監聽器
-    function initializeStorageIntegration() {
-        // 監聽對話開始
+    // 創建歷史記錄面板UI
+    function createHistoryPanel() {
+        const historyPanel = document.createElement('div');
+        historyPanel.id = 'historyPanel';
+        historyPanel.innerHTML = `
+            <style>
+                #historyPanel {
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    background: var(--card-bg);
+                    border-top: 1px solid var(--border-color);
+                    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+                    z-index: 1000;
+                    transform: translateY(100%);
+                    transition: transform 0.3s ease;
+                }
+                
+                #historyPanel.show {
+                    transform: translateY(0);
+                }
+                
+                .history-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 16px 24px;
+                    border-bottom: 1px solid var(--border-color);
+                    background: var(--bg-secondary);
+                }
+                
+                .history-title {
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                }
+                
+                .history-actions {
+                    display: flex;
+                    gap: 8px;
+                }
+                
+                .history-btn {
+                    background: var(--accent-primary);
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: background-color 0.2s;
+                }
+                
+                .history-btn:hover {
+                    background: var(--accent-hover);
+                }
+                
+                .history-btn.secondary {
+                    background: var(--text-secondary);
+                }
+                
+                .history-btn.danger {
+                    background: #ef4444;
+                }
+                
+                .history-content {
+                    max-height: 300px;
+                    overflow-y: auto;
+                    padding: 16px;
+                }
+                
+                .history-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+                
+                .history-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 12px 16px;
+                    background: var(--bg-secondary);
+                    border: 1px solid var(--border-color);
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .history-item:hover {
+                    background: var(--accent-primary);
+                    color: white;
+                    transform: translateX(4px);
+                }
+                
+                .history-avatars {
+                    display: flex;
+                    gap: 4px;
+                    margin-right: 12px;
+                }
+                
+                .history-avatar {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                    border: 1px solid var(--border-color);
+                }
+                
+                .history-info {
+                    flex: 1;
+                    min-width: 0;
+                }
+                
+                .history-roles {
+                    font-weight: 600;
+                    font-size: 14px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                
+                .history-topic {
+                    font-size: 12px;
+                    opacity: 0.8;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    margin-top: 2px;
+                }
+                
+                .history-meta {
+                    text-align: right;
+                    font-size: 11px;
+                    opacity: 0.7;
+                    min-width: 80px;
+                }
+                
+                .history-delete {
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 12px;
+                    margin-left: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: background-color 0.2s;
+                }
+                
+                .history-delete:hover {
+                    background: #dc2626;
+                }
+                
+                .history-empty {
+                    text-align: center;
+                    color: var(--text-secondary);
+                    padding: 40px;
+                    font-style: italic;
+                }
+                
+                .history-toggle {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: var(--accent-primary);
+                    color: white;
+                    border: none;
+                    width: 50px;
+                    height: 50px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 18px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                    transition: all 0.2s;
+                    z-index: 1001;
+                }
+                
+                .history-toggle:hover {
+                    background: var(--accent-hover);
+                    transform: scale(1.1);
+                }
+                
+                @media (max-width: 768px) {
+                    .history-content {
+                        max-height: 250px;
+                    }
+                    
+                    .history-item {
+                        padding: 10px 12px;
+                    }
+                    
+                    .history-roles {
+                        font-size: 13px;
+                    }
+                    
+                    .history-topic {
+                        font-size: 11px;
+                    }
+                }
+            </style>
+            
+            <div class="history-header">
+                <div class="history-title">📚 對話歷史記錄</div>
+                <div class="history-actions">
+                    <button class="history-btn secondary" onclick="toggleHistoryPanel()">收起</button>
+                    <button class="history-btn danger" onclick="clearAllHistory()">清空全部</button>
+                </div>
+            </div>
+            
+            <div class="history-content">
+                <div class="history-list" id="historyList">
+                    <div class="history-empty">尚無對話記錄</div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(historyPanel);
+        
+        // 創建切換按鈕
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'history-toggle';
+        toggleBtn.innerHTML = '📋';
+        toggleBtn.title = '查看對話歷史';
+        toggleBtn.onclick = toggleHistoryPanel;
+        document.body.appendChild(toggleBtn);
+    }
+    
+    // 更新歷史記錄列表
+    function updateHistoryPanel() {
+        const historyList = document.getElementById('historyList');
+        if (!historyList) return;
+        
+        const records = StorageManager.getAllRecords();
+        
+        if (records.length === 0) {
+            historyList.innerHTML = '<div class="history-empty">尚無對話記錄</div>';
+            return;
+        }
+        
+        historyList.innerHTML = records.map(record => {
+            const date = new Date(record.timestamp);
+            const timeStr = date.toLocaleDateString('zh-TW') + ' ' + date.toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'});
+            
+            return `
+                <div class="history-item" onclick="loadConversationRecord('${record.id}')">
+                    <div class="history-avatars">
+                        <img src="${record.role1Avatar}" class="history-avatar" alt="${record.role1Name}">
+                        <img src="${record.role2Avatar}" class="history-avatar" alt="${record.role2Name}">
+                    </div>
+                    <div class="history-info">
+                        <div class="history-roles">${record.role1Name} vs ${record.role2Name}</div>
+                        <div class="history-topic">${record.topic}</div>
+                    </div>
+                    <div class="history-meta">
+                        <div>${timeStr}</div>
+                        <div>${record.messages?.length || 0}則對話</div>
+                    </div>
+                    <button class="history-delete" onclick="event.stopPropagation(); deleteHistoryRecord('${record.id}')" title="刪除記錄">×</button>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // 切換歷史記錄面板
+    window.toggleHistoryPanel = function() {
+        const panel = document.getElementById('historyPanel');
+        if (panel) {
+            panel.classList.toggle('show');
+            updateHistoryPanel();
+        }
+    };
+    
+    // 載入對話記錄
+    window.loadConversationRecord = function(recordId) {
+        const records = StorageManager.getAllRecords();
+        const record = records.find(r => r.id === recordId);
+        
+        if (!record) {
+            alert('找不到指定的對話記錄');
+            return;
+        }
+        
+        // 停止當前對話（如果正在進行）
+        if (conversationState && conversationState.isRunning) {
+            if (confirm('目前有對話正在進行中，是否要停止並載入歷史記錄？')) {
+                conversationState.isRunning = false;
+                enableStartButton();
+            } else {
+                return;
+            }
+        }
+        
+        // 載入基本設定
+        document.getElementById('role1').value = record.role1Name;
+        document.getElementById('role2').value = record.role2Name;
+        document.getElementById('topic').value = record.topic;
+        document.getElementById('wordLimit').value = record.wordLimit.toString();
+        document.getElementById('rounds').value = record.totalRounds.toString();
+        
+        // 更新頭像選擇
+        updateAvatarSelection(1, record.role1Avatar);
+        updateAvatarSelection(2, record.role2Avatar);
+        
+        // 更新對話狀態
+        conversationState.role1Name = record.role1Name;
+        conversationState.role2Name = record.role2Name;
+        conversationState.role1Avatar = record.role1Avatar;
+        conversationState.role2Avatar = record.role2Avatar;
+        conversationState.topic = record.topic;
+        conversationState.wordLimit = record.wordLimit;
+        conversationState.totalRounds = record.totalRounds;
+        
+        // 更新聊天標題
+        updateChatHeader();
+        
+        // 清空並重新載入訊息
+        clearMessages();
+        
+        if (record.messages && record.messages.length > 0) {
+            record.messages.forEach(msg => {
+                addMessage(msg.roleName, msg.content, msg.isRole1, msg.turnNumber);
+            });
+            
+            // 顯示載入完成訊息
+            const chatMessages = document.getElementById('chatMessages');
+            const loadNotification = document.createElement('div');
+            loadNotification.className = 'loading-indicator';
+            loadNotification.style.color = 'var(--accent-primary)';
+            loadNotification.innerHTML = `
+                <div style="font-weight: 600;">
+                    ✅ 歷史記錄載入完成
+                </div>
+                <div style="font-size: 12px; margin-top: 4px;">
+                    記錄代號: ${record.id}
+                </div>
+            `;
+            chatMessages.appendChild(loadNotification);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // 關閉歷史面板
+        toggleHistoryPanel();
+        
+        console.log(`已載入對話記錄: ${record.id}`);
+    };
+    
+    // 刪除歷史記錄
+    window.deleteHistoryRecord = function(recordId) {
+        if (confirm('確定要刪除這筆對話記錄嗎？此操作無法復原。')) {
+            StorageManager.deleteRecord(recordId);
+        }
+    };
+    
+    // 清空所有歷史記錄
+    window.clearAllHistory = function() {
+        if (confirm('確定要清空所有對話記錄嗎？此操作無法復原。')) {
+            localStorage.removeItem(STORAGE_KEY);
+            updateHistoryPanel();
+            console.log('所有歷史記錄已清空');
+        }
+    };
+    
+    // 更新頭像選擇狀態
+    function updateAvatarSelection(roleNumber, avatarPath) {
+        const gridId = roleNumber === 1 ? 'avatar1Grid' : 'avatar2Grid';
+        const grid = document.getElementById(gridId);
+        
+        if (grid) {
+            // 清除所有選中狀態
+            grid.querySelectorAll('.avatar-option').forEach(img => {
+                img.classList.remove('selected');
+            });
+            
+            // 選中對應頭像
+            const targetAvatar = grid.querySelector(`[data-avatar="${avatarPath}"]`);
+            if (targetAvatar) {
+                targetAvatar.classList.add('selected');
+            }
+        }
+    }
+    
+    // 整合原始功能
+    function initializeIntegration() {
+        // 創建歷史面板
+        createHistoryPanel();
+        updateHistoryPanel();
+        
+        // 覆蓋原始的 startConversation 函數
         const originalStartConversation = window.startConversation;
         if (originalStartConversation) {
             window.startConversation = async function() {
-                // 執行原始功能
                 await originalStartConversation.call(this);
                 
-                // 如果對話成功開始，開始記錄
                 if (conversationState.isRunning) {
                     ConversationRecorder.startRecording({
                         role1Name: conversationState.role1Name,
@@ -1020,14 +1379,12 @@
             };
         }
         
-        // 監聽新訊息
+        // 覆蓋原始的 addMessage 函數
         const originalAddMessage = window.addMessage;
         if (originalAddMessage) {
             window.addMessage = function(roleName, content, isRole1, turnNumber) {
-                // 執行原始功能
                 originalAddMessage.call(this, roleName, content, isRole1, turnNumber);
                 
-                // 記錄訊息
                 ConversationRecorder.addMessage({
                     roleName: roleName,
                     content: content,
@@ -1037,19 +1394,14 @@
             };
         }
         
-        // 監聽對話完成
+        // 覆蓋原始的 finishConversation 函數
         const originalFinishConversation = window.finishConversation;
         if (originalFinishConversation) {
             window.finishConversation = function(totalRounds) {
-                // 執行原始功能
                 originalFinishConversation.call(this, totalRounds);
                 
-                // 完成記錄並儲存
                 const recordId = ConversationRecorder.finishRecording();
                 if (recordId) {
-                    console.log(`對話記錄已完成並儲存，代號: ${recordId}`);
-                    
-                    // 在聊天區域顯示儲存確認
                     const chatMessages = document.getElementById('chatMessages');
                     if (chatMessages) {
                         const saveNotification = document.createElement('div');
@@ -1069,87 +1421,18 @@
                 }
             };
         }
-        
-        // 監聽錯誤情況，取消記錄
-        if (window.socket) {
-            window.socket.on('error', function() {
-                if (ConversationRecorder.currentSession) {
-                    ConversationRecorder.cancelRecording();
-                }
-            });
-        }
     }
-    
-    // 公開API供外部使用
-    window.ConversationStorage = {
-        // 獲取所有記錄
-        getAllRecords: () => StorageManager.getAllRecords(),
-        
-        // 刪除指定記錄
-        deleteRecord: (recordId) => StorageManager.deleteRecord(recordId),
-        
-        // 清空所有記錄
-        clearAll: () => StorageManager.clearAllRecords(),
-        
-        // 獲取記錄統計
-        getStorageStats: () => {
-            const records = StorageManager.getAllRecords();
-            return {
-                totalRecords: records.length,
-                totalMessages: records.reduce((sum, record) => sum + (record.messages?.length || 0), 0),
-                oldestRecord: records.length > 0 ? records[records.length - 1].timestamp : null,
-                newestRecord: records.length > 0 ? records[0].timestamp : null
-            };
-        },
-        
-        // 匯出記錄為JSON
-        exportRecords: () => {
-            const records = StorageManager.getAllRecords();
-            const exportData = {
-                exportTime: new Date().toISOString(),
-                totalRecords: records.length,
-                records: records
-            };
-            
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-                type: 'application/json'
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `conversation_records_${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            URL.revokeObjectURL(url);
-        },
-        
-        // 匯入記錄
-        importRecords: (jsonData) => {
-            try {
-                const importData = JSON.parse(jsonData);
-                if (importData.records && Array.isArray(importData.records)) {
-                    importData.records.forEach(record => {
-                        StorageManager.saveRecord(record);
-                    });
-                    console.log(`成功匯入 ${importData.records.length} 筆記錄`);
-                    return true;
-                }
-            } catch (error) {
-                console.error('匯入記錄失敗:', error);
-                return false;
-            }
-        }
-    };
     
     // 等待頁面載入完成後初始化
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeStorageIntegration);
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initializeIntegration, 200);
+        });
     } else {
-        // 如果頁面已載入，延遲一下確保原始代碼已執行
-        setTimeout(initializeStorageIntegration, 100);
+        setTimeout(initializeIntegration, 200);
     }
     
-    console.log('對話記錄儲存模組已載入');
-    console.log('使用 ConversationStorage 來管理記錄');
+    console.log('對話歷史記錄模組已載入');
     
 })();
     </script>

@@ -51,7 +51,7 @@ class ConversationManager:
                 history_text += f"{msg['role']}: {msg['content']}\n"
             history_text += "\n"
         
-        prompt = f"""你現在要扮演 {character_name}。請根據這個角色的特點、說話方式和觀點來回應。對話主題：{topic}，{history_text}請以 {character_name} 的身份，針對目前的對話內容進行回應。要求：1. 保持角色一致性，符合 {character_name} 的特點和說話風格2. 回應要自然流暢，與前面的對話內容相關3. 字數控制在 {word_limit} 字以內4. 不要重複前面已經說過的內容5. 展現這個角色獨特的觀點和個性，請直接回應，不要加任何前綴或說明："""
+        prompt = f"""你現在要扮演 {character_name}。請根據這個角色的特點、說話方式和觀點來回應，使用該角色的語言、身分、文化進行回答。針對對話主題：{topic}，{history_text}以 {character_name} 的身份，針對目前的對話內容進行回應。要求：1. 保持角色一致性，符合 {character_name} 的特點和說話風格2. 回應要自然流暢，與前面的對話內容相關3. 字數控制在 {word_limit} 字以內，千萬不能超過！非常重要！4. 不要重複前面已經說過的內容5. 展現這個角色獨特的觀點和個性，6. 回應時，需要考量整體對話的脈絡性，進行推動。請直接回應，不要加任何前綴或說明："""
         
         return prompt
     
