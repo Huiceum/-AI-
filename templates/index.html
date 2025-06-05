@@ -35,7 +35,7 @@
             --accent-hover: #3b82f6;
             --card-bg: #1e293b;
             --dot-color: rgba(100, 116, 139, 0.1);
-            --role1-bg: #000000;
+            --role1-bg: #191a1b;
             --role1-border: #000000;
             --role1-text: #e6e6e6;
             --role2-bg: #2e2e2e;
@@ -454,7 +454,6 @@
     padding: 16px;
     margin: 16px 0;
     display: none;
-
     
 }
 
@@ -488,6 +487,18 @@
     gap: 8px;
     color: var(--text-secondary);
 }
+
+        /* 新增的 CSS 規則 */
+        .story-outline.collapsible {
+            max-height: 60px; /* 縮小高度 */
+            overflow-y: auto; /* 允許垂直滾動 */
+            resize: vertical; /* 允許用戶垂直拉伸 */
+            transition: max-height 0.3s ease-out; /* 平滑過渡效果 */
+        }
+        /* 隱藏滾動條（如果需要，原來的規則已經有了） */
+        .story-outline.collapsible::-webkit-scrollbar {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -1583,6 +1594,104 @@
     console.log('對話歷史記錄模組已載入');
     
 })();
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 覆蓋或增強原有的 socket.on('story_outline_generated') 處理函數
+            // 我們需要確保這個在 Socket 連接建立後，也就是 initSocket 執行後才能覆蓋。
+            // 因此，使用 setTimeout 確保執行順序，或者在 initSocket 內部直接修改。
+            // 由於initSocket在DOMContentLoaded執行，我們直接在這裡覆蓋原有的事件監聽器。
+            
+            // 儲存原始的事件處理函數，以防萬一（雖然這裡直接覆蓋是更直接的）
+            const originalStoryOutlineGenerated = socket._callbacks['$story_outline_generated'] ? socket._callbacks['$story_outline_generated'][0] : null;
+
+            socket.off('story_outline_generated'); // 移除原有的監聽器
+            socket.on('story_outline_generated', function(data) {
+                // 執行原始的處理邏輯
+                if (originalStoryOutlineGenerated) {
+                    originalStoryOutlineGenerated(data);
+                } else {
+                    // 如果沒有原始監聽器，則執行默認邏輯
+                    const outlineContent = document.getElementById('storyOutlineContent');
+                    if (outlineContent) {
+                        outlineContent.textContent = data.outline;
+                        conversationState.storyOutline = data.outline;
+                    }
+                }
+                
+                // 新增的縮小邏輯
+                const storyOutlineContainer = document.getElementById('storyOutline');
+                if (storyOutlineContainer) {
+                    // 確保其是可見的
+                    storyOutlineContainer.classList.add('show'); 
+                    // 在內容生成後，添加 collapsible class
+                    storyOutlineContainer.classList.add('collapsible');
+                }
+            });
+
+            // 如果大綱生成失敗，確保移除縮小效果 (可選，視乎你希望錯誤訊息是否也縮小)
+            const originalStoryOutlineError = socket._callbacks['$story_outline_error'] ? socket._callbacks['$story_outline_error'][0] : null;
+            socket.off('story_outline_error');
+            socket.on('story_outline_error', function(data) {
+                if (originalStoryOutlineError) {
+                    originalStoryOutlineError(data);
+                } else {
+                    const outlineContent = document.getElementById('storyOutlineContent');
+                    if (outlineContent) {
+                        outlineContent.innerHTML = '<span style="color: #ef4444;"><img src="/static/image/icon/icon-7.png" width="30" height="30" style="vertical-align: middle;"> 故事大綱生成失敗</span>';
+                        conversationState.storyOutline = ' 故事大綱生成失敗';
+                    }
+                }
+                const storyOutlineContainer = document.getElementById('storyOutline');
+                if (storyOutlineContainer) {
+                    // 移除 collapsible class，讓錯誤訊息完整顯示
+                    storyOutlineContainer.classList.remove('collapsible');
+                }
+            });
+
+            // 當點擊開始對話時，確保大綱回到初始狀態（未縮小）
+            const originalStartConversation = window.startConversation;
+            window.startConversation = async function() {
+                const storyOutlineContainer = document.getElementById('storyOutline');
+                if (storyOutlineContainer) {
+                    storyOutlineContainer.classList.remove('collapsible'); // 移除縮小class
+                    storyOutlineContainer.classList.remove('show'); // 隱藏大綱區域
+                    document.getElementById('storyOutlineContent').innerHTML = `
+                        <div class="outline-loading">
+                            <span class="loading-dot"></span>
+                            <span class="loading-dot"></span>
+                            <span class="loading-dot"></span>
+                            正在生成故事大綱...
+                        </div>
+                    `; // 重置內容為載入中
+                }
+                await originalStartConversation.apply(this, arguments); // 調用原始的開始對話函數
+            };
+
+            // 當載入歷史記錄時，如果歷史記錄有大綱，也確保其正確顯示並縮小
+            const originalLoadConversationRecord = window.loadConversationRecord;
+            window.loadConversationRecord = function(recordId) {
+                originalLoadConversationRecord.apply(this, arguments); // 調用原始載入函數
+
+                const records = StorageManager.getAllRecords(); // 假設 StorageManager 可用
+                const record = records.find(r => r.id === recordId);
+                const storyOutlineContainer = document.getElementById('storyOutline');
+
+                if (storyOutlineContainer && record && record.storyOutline) {
+                    // 載入歷史記錄後，如果大綱存在，則也套用縮小效果
+                    storyOutlineContainer.classList.add('collapsible');
+                } else if (storyOutlineContainer) {
+                    // 如果歷史記錄沒有大綱，確保沒有縮小效果
+                    storyOutlineContainer.classList.remove('collapsible');
+                }
+            };
+
+            // 因為 clearMessages 也會被觸發，確保它不會與這裡的邏輯衝突
+            // clearMessages 函數本身會清除 storyOutline，所以這裡不需要額外處理
+            // 它已經包含了 document.getElementById('storyOutline').classList.remove('show');
+            // 和 document.getElementById('storyOutlineContent').textContent = '';
+            // 所以，在清空時，collapsible class也會被移除
+        });
     </script>
 </body>
 </html>
