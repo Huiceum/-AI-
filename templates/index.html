@@ -437,49 +437,42 @@
         }
 
 
-.story-outline {
+        .story-outline {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 16px;
     margin: 16px 0;
     display: none;
-
     height: 60px; /* 初始高度：讓它剛好顯示標題和圖示，你可以根據實際顯示效果調整 */
     min-height: 60px; /* 最小高度：確保拖曳收合時至少能看到標題 */
     max-height: 300px; /* 最大高度：限制它能拖曳展開的範圍，你可以根據需求調整 */
     overflow-y: auto; /* 當內容超出高度時，顯示垂直滾動條 */
-    resize: vertical; /* 允許垂直方向的拖曳調整大小 */
-    cursor: ns-resize; /* 鼠標懸停在可拖曳區域時，顯示上下箭頭 */
-    /* =============================== */
+    
 }
-
 
 .story-outline.show {
     display: block;
 }
 
-/* 為了讓拖曳效果更好，建議給 story-outline-content 上方加一點內距 */
-.story-outline-content {
-    color: var(--text-secondary);
-    font-size: 14px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    padding-top: 8px; /* 在標題和內容之間增加一點間距 */
-}
-
-/* 保持其他原有的 CSS 規則 */
 .story-outline-title {
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 8px; /* 這裡的 margin-bottom 會被 story-outline-content 的 padding-top 視覺上取代 */
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
+.story-outline-content {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
 .outline-loading {
-    display: flex;
+    display: block;
     align-items: center;
     gap: 8px;
     color: var(--text-secondary);
