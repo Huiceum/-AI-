@@ -437,35 +437,47 @@
         }
 
 
-        .story-outline {
+.story-outline {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 16px;
     margin: 16px 0;
-    display: none;
+    /* display: none; */ /* 如果你希望它一開始是隱藏的，請保留這行 */
+    /* .story-outline.show 會讓它顯示 */
+
+    /* ==== 新增或修改以下這些屬性 ==== */
+    height: 60px; /* 初始高度：讓它剛好顯示標題和圖示，你可以根據實際顯示效果調整 */
+    min-height: 60px; /* 最小高度：確保拖曳收合時至少能看到標題 */
+    max-height: 300px; /* 最大高度：限制它能拖曳展開的範圍，你可以根據需求調整 */
+    overflow-y: auto; /* 當內容超出高度時，顯示垂直滾動條 */
+    resize: vertical; /* 允許垂直方向的拖曳調整大小 */
+    cursor: ns-resize; /* 鼠標懸停在可拖曳區域時，顯示上下箭頭 */
+    /* =============================== */
 }
 
+/* 保持 .story-outline.show 讓它在需要時顯示 */
 .story-outline.show {
     display: block;
 }
 
-.story-outline-title {
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
+/* 為了讓拖曳效果更好，建議給 story-outline-content 上方加一點內距 */
 .story-outline-content {
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.5;
     white-space: pre-wrap;
-    height: 20px;
-    overflow: visible;
+    padding-top: 8px; /* 在標題和內容之間增加一點間距 */
+}
+
+/* 保持其他原有的 CSS 規則 */
+.story-outline-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px; /* 這裡的 margin-bottom 會被 story-outline-content 的 padding-top 視覺上取代 */
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .outline-loading {
@@ -548,7 +560,19 @@
                 </div>
                 <div class="chat-subtitle">設定完成後點擊開始對話</div>
             </div>
-
+            <div class="story-outline" id="storyOutline">
+                <div class="story-outline-title">
+                    <img src="/static/image/icon/icon-4.png" width="30" height="30" style="vertical-align: middle;"> 故事大綱
+                </div>
+                <div class="story-outline-content" id="storyOutlineContent">
+                    <div class="outline-loading">
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                        正在生成故事大綱...
+                    </div>
+                </div>
+            </div>
 
             <div class="chat-messages" id="chatMessages">
                 <div style="text-align: center; color: var(--text-secondary); padding: 40px;">
