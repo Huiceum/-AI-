@@ -266,7 +266,7 @@
             overflow-y: auto;
             padding: 20px;
             min-height: 400px;
-            max-height: 600px;
+            max-height: 800px;
         }
 
         .message {
@@ -433,52 +433,6 @@
                 grid-template-columns: repeat(4, 1fr);
             }
         }
-
-                /* 新增的儲存對話列表樣式 */
-        .saved-conversation-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            background: var(--bg-secondary);
-            font-size: 14px;
-        }
-        .saved-conversation-item:last-child {
-            margin-bottom: 0;
-        }
-        .saved-conversation-item span {
-            flex-grow: 1;
-            margin-right: 10px;
-            color: var(--text-primary);
-        }
-        .saved-conversation-item button {
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            border: none;
-            flex-shrink: 0; /* Prevent buttons from shrinking */
-        }
-        .saved-conversation-item .load-btn {
-            background: var(--accent-primary);
-            color: white;
-            margin-right: 5px;
-        }
-        .saved-conversation-item .load-btn:hover {
-            background: var(--accent-hover);
-        }
-        .saved-conversation-item .delete-btn {
-            background: #dc3545; /* Red color */
-            color: white;
-        }
-        .saved-conversation-item .delete-btn:hover {
-            background: #c82333;
-        }
-        /* 新增的儲存對話列表樣式結束 */
     </style>
 </head>
 <body>
@@ -893,244 +847,311 @@
             document.getElementById('topic').value = '在人工智慧創新競賽中得獎';
         });
 
-                // ====================================================================
-        // 以下是為實現對話儲存功能而新增的 JS 程式碼
-        // ====================================================================
 
-        const SAVED_CONVERSATIONS_KEY = 'aiChatHistory'; // LocalStorage Key
-
-        // 在 conversationState 中新增一個 messages 陣列來儲存對話內容
-        // 這樣在 addMessage 時，除了更新 DOM，也會將訊息數據存到這個陣列中
-        // (此修改已在原 script 的 conversationState 定義中包含，此處僅為提醒)
-        // let conversationState = {
-        //     // ... existing properties ...
-        //     messages: [], // <-- 確保這個屬性存在
-        // };
-
-        // 修改 addMessage 函數，使其同時儲存訊息到 conversationState.messages
-        // 這個修改需要在原有的 addMessage 函數內部進行
-        // 我將直接提供修改後的 addMessage 函數，請替換您原有的版本
-        // (此修改在您提供的原始 script 中已有包含，此處僅為提醒)
-        /*
-        function addMessage(roleName, content, isRole1, turnNumber) {
-            const chatMessages = document.getElementById('chatMessages');
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isRole1 ? 'role1' : 'role2'}`;
-            
-            const avatarPath = isRole1 ? conversationState.role1Avatar : conversationState.role2Avatar;
-            
-            messageDiv.innerHTML = `
-                <img src="${avatarPath}" alt="${roleName}" class="message-avatar">
-                <div class="message-body">
-                    <div class="message-header">
-                        <span class="role-name">${roleName}</span>
-                        <span class="turn-number">第${turnNumber}輪</span>
-                    </div>
-                    <div class="message-content">${content}</div>
-                </div>
-            `;
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            // 儲存訊息到 conversationState.messages (新增的部分)
-            conversationState.messages.push({
-                roleName: roleName,
-                content: content,
-                isRole1: isRole1,
-                turnNumber: turnNumber
-            });
-            // conversationState.totalMessages 已經在 socket.on('new_message') 中處理，無需重複
-        }
-        */
-
-        // 輔助函數：從 LocalStorage 獲取所有儲存的對話
-        function getSavedConversations() {
-            const data = localStorage.getItem(SAVED_CONVERSATIONS_KEY);
-            return data ? JSON.parse(data) : [];
-        }
-
-        // 儲存當前對話到 LocalStorage
-        function saveConversation() {
-            const savedConversations = getSavedConversations();
-            const now = new Date();
-            const timestamp = now.toLocaleString(); // 格式化時間，例如 "2023/10/27 下午3:30:00"
-
-            const newConversation = {
-                code: '', // 代號將在稍後分配
-                timestamp: timestamp,
-                role1Name: conversationState.role1Name,
-                role2Name: conversationState.role2Name,
-                role1Avatar: conversationState.role1Avatar,
-                role2Avatar: conversationState.role2Avatar,
-                topic: conversationState.topic,
-                wordLimit: conversationState.wordLimit,
-                rounds: conversationState.totalRounds,
-                dialogue: [...conversationState.messages] // 複製對話內容
-            };
-
-            // 檢查是否超過10筆，如果是，則移除最舊的一筆
-            if (savedConversations.length >= 10) {
-                savedConversations.shift(); // 移除陣列的第一個元素 (最舊的)
+            // 對話記錄儲存模組
+(function() {
+    'use strict';
+    
+    const STORAGE_KEY = 'ai_conversation_records';
+    const MAX_RECORDS = 10;
+    
+    // 儲存管理器
+    const StorageManager = {
+        // 獲取所有記錄
+        getAllRecords() {
+            try {
+                const records = localStorage.getItem(STORAGE_KEY);
+                return records ? JSON.parse(records) : [];
+            } catch (error) {
+                console.error('讀取儲存記錄失敗:', error);
+                return [];
             }
-            
-            // 將新對話加入陣列
-            savedConversations.push(newConversation);
-
-            // 為所有對話重新分配代號 (C01, C02, ...)
-            savedConversations.forEach((conv, index) => {
-                conv.code = `C${(index + 1).toString().padStart(2, '0')}`;
-            });
-
-            // 儲存回 LocalStorage
-            localStorage.setItem(SAVED_CONVERSATIONS_KEY, JSON.stringify(savedConversations));
-            
-            // 更新顯示列表
-            displaySavedConversations();
-            
-            // 儲存後禁用按鈕
-            document.getElementById('saveConversationBtn').disabled = true;
-            alert('對話已成功儲存！');
-        }
-
-        // 載入指定的對話
-        function loadConversation(code) {
-            const savedConversations = getSavedConversations();
-            const convToLoad = savedConversations.find(conv => conv.code === code);
-
-            if (convToLoad) {
-                if (conversationState.isRunning && !confirm('對話正在進行中，載入新對話將會中斷當前進度。確定要載入嗎？')) {
-                    return;
+        },
+        
+        // 儲存記錄
+        saveRecord(record) {
+            try {
+                let records = this.getAllRecords();
+                
+                // 生成唯一代號
+                record.id = this.generateRecordId();
+                record.timestamp = new Date().toISOString();
+                
+                // 添加到記錄列表開頭
+                records.unshift(record);
+                
+                // 限制最多10筆記錄
+                if (records.length > MAX_RECORDS) {
+                    records = records.slice(0, MAX_RECORDS);
                 }
-
-                // 更新控制面板的輸入欄位
-                document.getElementById('role1').value = convToLoad.role1Name;
-                document.getElementById('role2').value = convToLoad.role2Name;
-                document.getElementById('topic').value = convToLoad.topic;
-                document.getElementById('wordLimit').value = convToLoad.wordLimit;
-                document.getElementById('rounds').value = convToLoad.rounds;
-
-                // 更新選中的頭像
-                const avatar1Element = document.querySelector(`#avatar1Grid img[data-avatar="${convToLoad.role1Avatar}"]`);
-                if (avatar1Element) selectAvatar(1, convToLoad.role1Avatar, avatar1Element);
                 
-                const avatar2Element = document.querySelector(`#avatar2Grid img[data-avatar="${convToLoad.role2Avatar}"]`);
-                if (avatar2Element) selectAvatar(2, convToLoad.role2Avatar, avatar2Element);
-
-                // 清空當前聊天訊息並載入儲存的對話
-                clearMessages();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+                console.log(`對話記錄已儲存，代號: ${record.id}`);
+                return record.id;
+            } catch (error) {
+                console.error('儲存記錄失敗:', error);
+            }
+        },
+        
+        // 生成記錄代號
+        generateRecordId() {
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substr(2, 5);
+            return `CONV_${timestamp}_${random}`.toUpperCase();
+        },
+        
+        // 刪除記錄
+        deleteRecord(recordId) {
+            try {
+                let records = this.getAllRecords();
+                records = records.filter(record => record.id !== recordId);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+                console.log(`記錄 ${recordId} 已刪除`);
+            } catch (error) {
+                console.error('刪除記錄失敗:', error);
+            }
+        },
+        
+        // 清空所有記錄
+        clearAllRecords() {
+            try {
+                localStorage.removeItem(STORAGE_KEY);
+                console.log('所有對話記錄已清空');
+            } catch (error) {
+                console.error('清空記錄失敗:', error);
+            }
+        }
+    };
+    
+    // 對話記錄收集器
+    const ConversationRecorder = {
+        currentSession: null,
+        
+        // 開始新的記錄會話
+        startRecording(sessionData) {
+            this.currentSession = {
+                role1Name: sessionData.role1Name,
+                role2Name: sessionData.role2Name,
+                role1Avatar: sessionData.role1Avatar,
+                role2Avatar: sessionData.role2Avatar,
+                topic: sessionData.topic,
+                wordLimit: sessionData.wordLimit,
+                totalRounds: sessionData.totalRounds,
+                messages: [],
+                startTime: new Date().toISOString(),
+                status: 'recording'
+            };
+            console.log('開始記錄新的對話會話');
+        },
+        
+        // 添加訊息到當前會話
+        addMessage(messageData) {
+            if (!this.currentSession) return;
+            
+            this.currentSession.messages.push({
+                roleName: messageData.roleName,
+                content: messageData.content,
+                isRole1: messageData.isRole1,
+                turnNumber: messageData.turnNumber,
+                timestamp: new Date().toISOString()
+            });
+        },
+        
+        // 完成記錄並儲存
+        finishRecording() {
+            if (!this.currentSession) return;
+            
+            this.currentSession.endTime = new Date().toISOString();
+            this.currentSession.status = 'completed';
+            
+            // 計算對話統計
+            this.currentSession.stats = {
+                totalMessages: this.currentSession.messages.length,
+                actualRounds: Math.ceil(this.currentSession.messages.length / 2),
+                duration: this.calculateDuration()
+            };
+            
+            // 儲存記錄
+            const recordId = StorageManager.saveRecord({ ...this.currentSession });
+            
+            // 清空當前會話
+            this.currentSession = null;
+            
+            return recordId;
+        },
+        
+        // 計算對話持續時間
+        calculateDuration() {
+            if (!this.currentSession.startTime || !this.currentSession.endTime) return 0;
+            
+            const start = new Date(this.currentSession.startTime);
+            const end = new Date(this.currentSession.endTime);
+            return Math.round((end - start) / 1000); // 返回秒數
+        },
+        
+        // 取消當前記錄
+        cancelRecording() {
+            this.currentSession = null;
+            console.log('對話記錄已取消');
+        }
+    };
+    
+    // 與原始代碼整合的監聽器
+    function initializeStorageIntegration() {
+        // 監聽對話開始
+        const originalStartConversation = window.startConversation;
+        if (originalStartConversation) {
+            window.startConversation = async function() {
+                // 執行原始功能
+                await originalStartConversation.call(this);
                 
-                // 重置 conversationState 以反映載入的對話
-                conversationState = {
-                    isRunning: false, // 載入後不是運行狀態，需重新點擊開始
-                    currentRound: convToLoad.dialogue.length / 2, // 根據訊息數量判斷當前輪次
-                    totalRounds: convToLoad.rounds,
-                    role1Name: convToLoad.role1Name,
-                    role2Name: convToLoad.role2Name,
-                    role1Avatar: convToLoad.role1Avatar,
-                    role2Avatar: convToLoad.role2Avatar,
-                    topic: convToLoad.topic,
-                    wordLimit: convToLoad.wordLimit,
-                    messages: [], // 先清空，再透過 addMessage 填充
-                    totalMessages: 0
-                };
-
-                convToLoad.dialogue.forEach(msg => {
-                    // addMessage 函數會自動將訊息推送到 conversationState.messages
-                    addMessage(msg.roleName, msg.content, msg.isRole1, msg.turnNumber);
+                // 如果對話成功開始，開始記錄
+                if (conversationState.isRunning) {
+                    ConversationRecorder.startRecording({
+                        role1Name: conversationState.role1Name,
+                        role2Name: conversationState.role2Name,
+                        role1Avatar: conversationState.role1Avatar,
+                        role2Avatar: conversationState.role2Avatar,
+                        topic: conversationState.topic,
+                        wordLimit: conversationState.wordLimit,
+                        totalRounds: conversationState.totalRounds
+                    });
+                }
+            };
+        }
+        
+        // 監聽新訊息
+        const originalAddMessage = window.addMessage;
+        if (originalAddMessage) {
+            window.addMessage = function(roleName, content, isRole1, turnNumber) {
+                // 執行原始功能
+                originalAddMessage.call(this, roleName, content, isRole1, turnNumber);
+                
+                // 記錄訊息
+                ConversationRecorder.addMessage({
+                    roleName: roleName,
+                    content: content,
+                    isRole1: isRole1,
+                    turnNumber: turnNumber
                 });
+            };
+        }
+        
+        // 監聽對話完成
+        const originalFinishConversation = window.finishConversation;
+        if (originalFinishConversation) {
+            window.finishConversation = function(totalRounds) {
+                // 執行原始功能
+                originalFinishConversation.call(this, totalRounds);
                 
-                // 由於 addMessage 會在 conversationState.messages 中添加，
-                // 這裡需要手動同步 totalMessages
-                conversationState.totalMessages = convToLoad.dialogue.length;
-
-                updateChatHeader(); // 更新聊天室標題
-                
-                // 載入後禁用儲存按鈕，直到新對話完成
-                document.getElementById('saveConversationBtn').disabled = true;
-                enableStartButton(); // 載入後允許重新開始
-                alert(`對話代號 ${code} 已載入！`);
-            } else {
-                alert('找不到此對話記錄。');
-            }
+                // 完成記錄並儲存
+                const recordId = ConversationRecorder.finishRecording();
+                if (recordId) {
+                    console.log(`對話記錄已完成並儲存，代號: ${recordId}`);
+                    
+                    // 在聊天區域顯示儲存確認
+                    const chatMessages = document.getElementById('chatMessages');
+                    if (chatMessages) {
+                        const saveNotification = document.createElement('div');
+                        saveNotification.className = 'loading-indicator';
+                        saveNotification.style.color = 'var(--accent-primary)';
+                        saveNotification.innerHTML = `
+                            <div style="font-weight: 600;">
+                                💾 對話記錄已自動儲存
+                            </div>
+                            <div style="font-size: 12px; margin-top: 4px;">
+                                記錄代號: ${recordId}
+                            </div>
+                        `;
+                        chatMessages.appendChild(saveNotification);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                }
+            };
         }
-
-        // 刪除指定的對話
-        function deleteConversation(code) {
-            if (!confirm(`確定要刪除代號為 ${code} 的對話嗎？`)) {
-                return;
-            }
-            let savedConversations = getSavedConversations();
-            // 過濾掉要刪除的對話
-            savedConversations = savedConversations.filter(conv => conv.code !== code);
+        
+        // 監聽錯誤情況，取消記錄
+        if (window.socket) {
+            window.socket.on('error', function() {
+                if (ConversationRecorder.currentSession) {
+                    ConversationRecorder.cancelRecording();
+                }
+            });
+        }
+    }
+    
+    // 公開API供外部使用
+    window.ConversationStorage = {
+        // 獲取所有記錄
+        getAllRecords: () => StorageManager.getAllRecords(),
+        
+        // 刪除指定記錄
+        deleteRecord: (recordId) => StorageManager.deleteRecord(recordId),
+        
+        // 清空所有記錄
+        clearAll: () => StorageManager.clearAllRecords(),
+        
+        // 獲取記錄統計
+        getStorageStats: () => {
+            const records = StorageManager.getAllRecords();
+            return {
+                totalRecords: records.length,
+                totalMessages: records.reduce((sum, record) => sum + (record.messages?.length || 0), 0),
+                oldestRecord: records.length > 0 ? records[records.length - 1].timestamp : null,
+                newestRecord: records.length > 0 ? records[0].timestamp : null
+            };
+        },
+        
+        // 匯出記錄為JSON
+        exportRecords: () => {
+            const records = StorageManager.getAllRecords();
+            const exportData = {
+                exportTime: new Date().toISOString(),
+                totalRecords: records.length,
+                records: records
+            };
             
-            // 重新分配代號以保持順序 (C01, C02, ...)
-            savedConversations.forEach((conv, index) => {
-                conv.code = `C${(index + 1).toString().padStart(2, '0')}`;
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
             });
-
-            localStorage.setItem(SAVED_CONVERSATIONS_KEY, JSON.stringify(savedConversations));
-            displaySavedConversations(); // 更新顯示列表
-            alert(`對話代號 ${code} 已刪除！`);
-        }
-
-        // 顯示所有儲存的對話列表
-        function displaySavedConversations() {
-            const listContainer = document.getElementById('savedConversationsList');
-            listContainer.innerHTML = ''; // 清空現有列表
-
-            const savedConversations = getSavedConversations();
-
-            if (savedConversations.length === 0) {
-                listContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary); font-size: 14px;">尚無儲存的對話</div>';
-                return;
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `conversation_records_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        },
+        
+        // 匯入記錄
+        importRecords: (jsonData) => {
+            try {
+                const importData = JSON.parse(jsonData);
+                if (importData.records && Array.isArray(importData.records)) {
+                    importData.records.forEach(record => {
+                        StorageManager.saveRecord(record);
+                    });
+                    console.log(`成功匯入 ${importData.records.length} 筆記錄`);
+                    return true;
+                }
+            } catch (error) {
+                console.error('匯入記錄失敗:', error);
+                return false;
             }
-
-            savedConversations.forEach(conv => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'saved-conversation-item';
-                itemDiv.innerHTML = `
-                    <span>${conv.code} - ${conv.role1Name} vs ${conv.role2Name}<br><small style="color: var(--text-secondary);">${conv.timestamp}</small></span>
-                    <div>
-                        <button class="load-btn" data-code="${conv.code}">載入</button>
-                        <button class="delete-btn" data-code="${conv.code}">刪除</button>
-                    </div>
-                `;
-                listContainer.appendChild(itemDiv);
-            });
-
-            // 為新創建的按鈕添加事件監聽器
-            listContainer.querySelectorAll('.load-btn').forEach(button => {
-                button.addEventListener('click', (e) => loadConversation(e.target.dataset.code));
-            });
-            listContainer.querySelectorAll('.delete-btn').forEach(button => {
-                button.addEventListener('click', (e) => deleteConversation(e.target.dataset.code));
-            });
         }
-
-        // 修改 finishConversation 函數，使其在對話結束時啟用儲存按鈕
-        // 這個修改需要在原有的 finishConversation 函數內部進行
-        const originalFinishConversation = finishConversation; // 備份原始函數
-        finishConversation = function(totalRounds) {
-            originalFinishConversation(totalRounds); // 呼叫原始功能
-            document.getElementById('saveConversationBtn').disabled = false; // 啟用儲存按鈕
-        };
-
-        // 在頁面載入時，初始化顯示儲存的對話列表並設定儲存按鈕事件
-        document.addEventListener('DOMContentLoaded', function() {
-            // ... 您原有的 DOMContentLoaded 內容 ...
-            
-            // 初始化顯示儲存對話列表
-            displaySavedConversations(); 
-
-            // 為儲存按鈕添加事件監聽器
-            document.getElementById('saveConversationBtn').addEventListener('click', saveConversation);
-        });
-
-        // ====================================================================
-        // 新增的 JS 程式碼結束
-        // ====================================================================
+    };
+    
+    // 等待頁面載入完成後初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeStorageIntegration);
+    } else {
+        // 如果頁面已載入，延遲一下確保原始代碼已執行
+        setTimeout(initializeStorageIntegration, 100);
+    }
+    
+    console.log('對話記錄儲存模組已載入');
+    console.log('使用 ConversationStorage 來管理記錄');
+    
+})();
     </script>
 </body>
 </html>
