@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app
     envVars:
       - key: GEMINI_API_KEY
         sync: false  # 需要在 Render 控制台手動設置
@@ -12,5 +12,3 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: 3.11.0
-      - key: PORT
-        value: 10000
