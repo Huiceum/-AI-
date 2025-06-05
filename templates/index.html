@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI角色對話系統</title>
+    <link rel="icon" href="/static/image/icon/icon-8.png" type="image/x-icon">
+
     <style>
         :root {
             --bg-primary: #ffffff;
@@ -33,12 +35,12 @@
             --accent-hover: #3b82f6;
             --card-bg: #1e293b;
             --dot-color: rgba(100, 116, 139, 0.1);
-            --role1-bg: #ffffff;
-            --role1-border: #e5e7eb;
-            --role1-text: #000000;
-            --role2-bg: #f3f4f6;
-            --role2-border: #d1d5db;
-            --role2-text: #000000;
+            --role1-bg: #000000;
+            --role1-border: #000000;
+            --role1-text: #e6e6e6;
+            --role2-bg: #2e2e2e;
+            --role2-border: #e6e6e6;
+            --role2-text: #ffffff;
         }
 
         * {
@@ -114,7 +116,7 @@
         }
 
         .theme-toggle {
-            background: var(--accent-primary);
+            background: var(--bg-primary);
             color: white;
             border: none;
             padding: 8px 12px;
@@ -125,7 +127,7 @@
         }
 
         .theme-toggle:hover {
-            background: var(--accent-hover);
+            background: var(--bg-secondary);
         }
 
         .form-group {
@@ -205,7 +207,7 @@
 
         .start-btn {
             width: 100%;
-            background: var(--accent-primary);
+            background: var(--bg-primar);
             color: white;
             border: none;
             padding: 14px;
@@ -218,7 +220,7 @@
         }
 
         .start-btn:hover {
-            background: var(--accent-hover);
+            background: var(--bg-secondary);
             transform: translateY(-1px);
         }
 
@@ -433,6 +435,43 @@
                 grid-template-columns: repeat(4, 1fr);
             }
         }
+
+
+        .story-outline {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    display: none;
+}
+
+.story-outline.show {
+    display: block;
+}
+
+.story-outline-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.story-outline-content {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.outline-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+}
     </style>
 </head>
 <body>
@@ -440,12 +479,16 @@
         <div class="control-panel">
             <div class="header">
                 <h1>對話設定</h1>
-                <button class="theme-toggle" onclick="toggleTheme()">切換模式</button>
+                <button class="theme-toggle" onclick="toggleTheme()"><img src="/static/image/icon/icon-11.png" width="30" height="30" style="vertical-align: middle;"></button>
             </div>
 
             <div class="form-group">
                 <label for="role1">角色一名稱</label>
                 <input type="text" id="role1" placeholder="請輸入第一位要扮演的角色">
+                <div class="form-group">
+                    <label for="role1Description">角色一描述</label>
+                    <textarea id="role1Description" placeholder="請描述角色的性格、背景、特點等...（例：聰明但懶惰的小學生，經常依賴哆啦A夢的道具）" style="min-height: 60px;"></textarea>
+                </div>
                 <div class="avatar-selector">
                     <label>角色一頭像</label>
                     <div class="avatar-grid" id="avatar1Grid"></div>
@@ -455,6 +498,10 @@
             <div class="form-group">
                 <label for="role2">角色二名稱</label>
                 <input type="text" id="role2" placeholder="請輸入第二位要扮演的角色">
+                <div class="form-group">
+                    <label for="role2Description">角色二描述</label>
+                    <textarea id="role2Description" placeholder="請描述角色的性格、背景、特點等...（例：來自22世紀的機器貓，善良有耐心，總是幫助大雄解決問題）" style="min-height: 60px;"></textarea>
+                </div>
                 <div class="avatar-selector">
                     <label>角色二頭像</label>
                     <div class="avatar-grid" id="avatar2Grid"></div>
@@ -488,7 +535,7 @@
                 </div>
             </div>
 
-            <button id="startBtn" class="start-btn" onclick="startConversation()">開始對話</button>
+            <button id="startBtn" class="start-btn" onclick="startConversation()"><img src="/static/image/icon/icon-8.png" width="30" height="30" style="vertical-align: middle;"></button>
         </div>
 
         <div class="chat-area">
@@ -498,6 +545,19 @@
                     AI角色對話
                 </div>
                 <div class="chat-subtitle">設定完成後點擊開始對話</div>
+            </div>
+            <div class="story-outline" id="storyOutline">
+                <div class="story-outline-title">
+                    📖 故事大綱
+                </div>
+                <div class="story-outline-content" id="storyOutlineContent">
+                    <div class="outline-loading">
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                        <span class="loading-dot"></span>
+                        正在生成故事大綱...
+                    </div>
+                </div>
             </div>
 
             <div class="chat-messages" id="chatMessages">
@@ -509,14 +569,17 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-    <script>
-        let socket = null;
+    <script>        let socket = null;
         let conversationState = {
             isRunning: false,
             currentRound: 0,
             totalRounds: 0,
             role1Name: '',
             role2Name: '',
+            // MODIFIED: 新增角色描述和故事大綱屬性
+            role1Description: '',
+            role2Description: '',
+            storyOutline: '', 
             role1Avatar: '/static/image/role/role-1.png',
             role2Avatar: '/static/image/role/role-2.png',
             topic: '',
@@ -610,6 +673,23 @@
                 showError(data.message);
                 enableStartButton();
             });
+
+            // MODIFIED: 新增 Socket 事件監聽器 for 故事大綱
+            socket.on('story_outline_generated', function(data) {
+                const outlineContent = document.getElementById('storyOutlineContent');
+                if (outlineContent) {
+                    outlineContent.textContent = data.outline;
+                    conversationState.storyOutline = data.outline; // 更新狀態中的故事大綱
+                }
+            });
+
+            socket.on('story_outline_error', function(data) {
+                const outlineContent = document.getElementById('storyOutlineContent');
+                if (outlineContent) {
+                    outlineContent.innerHTML = '<span style="color: #ef4444;">❌ 故事大綱生成失敗</span>';
+                    conversationState.storyOutline = '❌ 故事大綱生成失敗'; // 記錄錯誤狀態
+                }
+            });
         }
 
         function updateConnectionStatus(connected) {
@@ -628,12 +708,15 @@
             body.setAttribute('data-theme', newTheme);
             
             const toggleBtn = document.querySelector('.theme-toggle');
-            toggleBtn.textContent = newTheme === 'dark' ? '淺色模式' : '深色模式';
+            toggleBtn.innerHTML = newTheme === 'dark' ? '<img src="/static/image/icon/icon-12.png" width="30" height="30" style="vertical-align: middle;">' : '<img src="/static/image/icon/icon-11.png" width="30" height="30" style="vertical-align: middle;">';
         }
 
+        // MODIFIED: startConversation 函數，新增角色描述參數和顯示故事大綱區域
         async function startConversation() {
             const role1 = document.getElementById('role1').value.trim();
             const role2 = document.getElementById('role2').value.trim();
+            const role1Description = document.getElementById('role1Description').value.trim(); // NEW
+            const role2Description = document.getElementById('role2Description').value.trim(); // NEW
             const topic = document.getElementById('topic').value.trim();
             const wordLimit = parseInt(document.getElementById('wordLimit').value);
             const rounds = parseInt(document.getElementById('rounds').value);
@@ -655,10 +738,13 @@
                 totalRounds: rounds,
                 role1Name: role1,
                 role2Name: role2,
+                role1Description: role1Description, // NEW
+                role2Description: role2Description, // NEW
                 topic: topic,
                 wordLimit: wordLimit,
                 messages: [],
-                totalMessages: 0
+                totalMessages: 0,
+                storyOutline: '' // 重置故事大綱
             };
 
             updateChatHeader();
@@ -674,6 +760,8 @@
                     body: JSON.stringify({
                         role1: role1,
                         role2: role2,
+                        role1Description: role1Description, // NEW
+                        role2Description: role2Description, // NEW
                         topic: topic,
                         wordLimit: wordLimit,
                         rounds: rounds
@@ -686,6 +774,9 @@
                     throw new Error(data.error || '開始對話失敗');
                 }
 
+                // 顯示故事大綱區域 (NEW)
+                document.getElementById('storyOutline').classList.add('show');
+                
                 addProgressBar();
                 
             } catch (error) {
@@ -711,6 +802,9 @@
         function clearMessages() {
             const chatMessages = document.getElementById('chatMessages');
             chatMessages.innerHTML = '';
+            // MODIFIED: 清空訊息時也清空故事大綱顯示
+            document.getElementById('storyOutline').classList.remove('show');
+            document.getElementById('storyOutlineContent').textContent = '';
         }
 
         function addMessage(roleName, content, isRole1, turnNumber) {
@@ -845,10 +939,14 @@
             document.getElementById('role1').value = '野比．大雄';
             document.getElementById('role2').value = '哆啦A夢';
             document.getElementById('topic').value = '在人工智慧創新競賽中得獎';
+
+            // MODIFIED: 在頁面載入時設置預設的角色描述
+            document.getElementById('role1Description').value = '聰明但懶惰的小學生，經常依賴哆啦A夢的道具解決問題，對新科技充滿好奇心但缺乏實際行動力。';
+            document.getElementById('role2Description').value = '來自22世紀的機器貓，善良有耐心，擁有四次元口袋和各種神奇道具，總是幫助大雄解決困難。';
         });
 
 
-            // 對話歷史記錄模組
+        // 對話歷史記錄模組
 (function() {
     'use strict';
     
@@ -915,15 +1013,19 @@
     const ConversationRecorder = {
         currentSession: null,
         
+        // MODIFIED: startRecording 函數，新增角色描述和故事大綱參數
         startRecording(sessionData) {
             this.currentSession = {
                 role1Name: sessionData.role1Name,
                 role2Name: sessionData.role2Name,
+                role1Description: sessionData.role1Description || '', // NEW
+                role2Description: sessionData.role2Description || '', // NEW
                 role1Avatar: sessionData.role1Avatar,
                 role2Avatar: sessionData.role2Avatar,
                 topic: sessionData.topic,
                 wordLimit: sessionData.wordLimit,
                 totalRounds: sessionData.totalRounds,
+                storyOutline: sessionData.storyOutline || '', // NEW
                 messages: [],
                 startTime: new Date().toISOString(),
                 status: 'recording'
@@ -942,12 +1044,16 @@
             });
         },
         
+        // MODIFIED: finishRecording 函數，確保故事大綱被保存
         finishRecording() {
             if (!this.currentSession) return;
             
             this.currentSession.endTime = new Date().toISOString();
             this.currentSession.status = 'completed';
             
+            // 從 conversationState 獲取最新的故事大綱，確保保存的是最終版本
+            this.currentSession.storyOutline = conversationState.storyOutline || document.getElementById('storyOutlineContent')?.textContent || '';
+
             this.currentSession.stats = {
                 totalMessages: this.currentSession.messages.length,
                 actualRounds: Math.ceil(this.currentSession.messages.length / 2),
@@ -1136,7 +1242,7 @@
                     position: fixed;
                     bottom: 20px;
                     right: 20px;
-                    background: var(--accent-primary);
+                    background: var(--bg-secondary);
                     color: white;
                     border: none;
                     width: 50px;
@@ -1150,7 +1256,7 @@
                 }
                 
                 .history-toggle:hover {
-                    background: var(--accent-hover);
+                    background: var( --bg-primary);
                     transform: scale(1.1);
                 }
                 
@@ -1174,8 +1280,10 @@
             </style>
             
             <div class="history-header">
-                <div class="history-title">📚 對話歷史記錄</div>
-                <div class="history-actions">
+<div class="history-title">
+  <img src="/static/image/icon/icon-5.png" width="30" height="30" style="vertical-align: middle;">
+  對話歷史記錄
+</div>                <div class="history-actions">
                     <button class="history-btn secondary" onclick="toggleHistoryPanel()">收起</button>
                     <button class="history-btn danger" onclick="clearAllHistory()">清空全部</button>
                 </div>
@@ -1193,7 +1301,7 @@
         // 創建切換按鈕
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'history-toggle';
-        toggleBtn.innerHTML = '📋';
+        toggleBtn.innerHTML = ' <img src="/static/image/icon/icon-5.png" width="30" height="30" style="vertical-align: middle;">';
         toggleBtn.title = '查看對話歷史';
         toggleBtn.onclick = toggleHistoryPanel;
         document.body.appendChild(toggleBtn);
@@ -1244,7 +1352,7 @@
         }
     };
     
-    // 載入對話記錄
+    // MODIFIED: 載入對話記錄功能
     window.loadConversationRecord = function(recordId) {
         const records = StorageManager.getAllRecords();
         const record = records.find(r => r.id === recordId);
@@ -1271,24 +1379,39 @@
         document.getElementById('wordLimit').value = record.wordLimit.toString();
         document.getElementById('rounds').value = record.totalRounds.toString();
         
+        // MODIFIED: 載入角色描述
+        document.getElementById('role1Description').value = record.role1Description || '';
+        document.getElementById('role2Description').value = record.role2Description || '';
+        
         // 更新頭像選擇
         updateAvatarSelection(1, record.role1Avatar);
         updateAvatarSelection(2, record.role2Avatar);
         
-        // 更新對話狀態
+        // 更新對話狀態 (確保角色描述和故事大綱也更新)
         conversationState.role1Name = record.role1Name;
         conversationState.role2Name = record.role2Name;
+        conversationState.role1Description = record.role1Description || ''; // NEW
+        conversationState.role2Description = record.role2Description || ''; // NEW
         conversationState.role1Avatar = record.role1Avatar;
         conversationState.role2Avatar = record.role2Avatar;
         conversationState.topic = record.topic;
         conversationState.wordLimit = record.wordLimit;
         conversationState.totalRounds = record.totalRounds;
+        conversationState.storyOutline = record.storyOutline || ''; // NEW
+        
+        // 顯示故事大綱 (NEW)
+        document.getElementById('storyOutline').classList.remove('show'); // 先隱藏並清空
+        document.getElementById('storyOutlineContent').textContent = '';
+        if (record.storyOutline) {
+            document.getElementById('storyOutline').classList.add('show');
+            document.getElementById('storyOutlineContent').textContent = record.storyOutline;
+        }
         
         // 更新聊天標題
         updateChatHeader();
         
         // 清空並重新載入訊息
-        clearMessages();
+        clearMessages(); // 這會自動清除故事大綱顯示，所以要確保之後再顯示
         
         if (record.messages && record.messages.length > 0) {
             record.messages.forEach(msg => {
@@ -1360,20 +1483,26 @@
         updateHistoryPanel();
         
         // 覆蓋原始的 startConversation 函數
-        const originalStartConversation = window.startConversation;
+        // 注意：這裡假設外層的 startConversation 已經被修改
+        // 如果沒有，您可能需要在此處捕獲原始函數並呼叫它
+        const originalStartConversation = window.startConversation; // 這裡的 original 是指已經被修改過的那個
         if (originalStartConversation) {
             window.startConversation = async function() {
-                await originalStartConversation.call(this);
+                // 在這裡您可以添加額外的邏輯，或者直接調用修改過的原函數
+                await originalStartConversation.call(this); // 調用修改過後的 startConversation 
                 
                 if (conversationState.isRunning) {
                     ConversationRecorder.startRecording({
                         role1Name: conversationState.role1Name,
                         role2Name: conversationState.role2Name,
+                        role1Description: conversationState.role1Description, // NEW: 傳遞描述
+                        role2Description: conversationState.role2Description, // NEW: 傳遞描述
                         role1Avatar: conversationState.role1Avatar,
                         role2Avatar: conversationState.role2Avatar,
                         topic: conversationState.topic,
                         wordLimit: conversationState.wordLimit,
-                        totalRounds: conversationState.totalRounds
+                        totalRounds: conversationState.totalRounds,
+                        storyOutline: conversationState.storyOutline // NEW: 傳遞故事大綱
                     });
                 }
             };
@@ -1421,6 +1550,8 @@
                 }
             };
         }
+        // 注意：loadConversationRecord 已經被直接修改，而不是在這裡被再次包裹
+        // 所以此處不需要再次定義或包裹 loadConversationRecord
     }
     
     // 等待頁面載入完成後初始化

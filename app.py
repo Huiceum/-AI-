@@ -28,30 +28,111 @@ class ConversationManager:
         self.conversations = {}
         self.model = genai.GenerativeModel('models/gemini-2.5-flash-preview-05-20')
     
-    def create_conversation(self, session_id, role1, role2, topic, word_limit, rounds):
+    def create_conversation(self, session_id, role1, role2, role1_description, role2_description, topic, word_limit, rounds):
         """創建新的對話會話"""
         self.conversations[session_id] = {
             'role1': role1,
             'role2': role2,
+            'role1_description': role1_description,
+            'role2_description': role2_description,
             'topic': topic,
             'word_limit': word_limit,
             'rounds': rounds,
             'current_round': 0,
             'messages': [],
-            'conversation_history': []
+            'conversation_history': [],
+            'story_outline': None
         }
         return True
     
-    def generate_character_prompt(self, character_name, topic, conversation_history, word_limit):
-        """生成角色專屬的提示詞"""
+    async def generate_story_outline(self, session_id):
+        """生成故事大綱"""
+        try:
+            conversation = self.conversations[session_id]
+            
+            outline_prompt = f"""
+請根據以下設定，為一場對話生成一個詳細的故事大綱：
+
+角色設定：
+• {conversation['role1']}：{conversation['role1_description']}
+• {conversation['role2']}：{conversation['role2_description']}
+
+對話主題：{conversation['topic']}
+對話輪數：{conversation['rounds']}輪
+
+請生成一個完整的故事大綱，包含：
+1. 故事背景和情境設定
+2. 兩個角色在這個話題上的不同立場或觀點
+3. 對話的發展脈絡（從開始到結束的情節走向）
+4. 可能的衝突點和解決方向
+5. 預期的對話結果或結論
+
+大綱要能引導{conversation['rounds']}輪的自然對話發展，每輪對話都要有意義和推進作用。
+
+請直接回答故事大綱，不需要其他說明：
+"""
+            
+            response = self.model.generate_content(outline_prompt)
+            outline = response.text.strip()
+            
+            # 儲存故事大綱
+            conversation['story_outline'] = outline
+            
+            return outline
+            
+        except Exception as e:
+            logger.error(f"生成故事大綱時發生錯誤: {e}")
+            return None
+    
+    def generate_character_prompt(self, character_name, character_description, topic, conversation_history, word_limit, story_outline, current_round, total_rounds):
+        """生成角色專屬的提示詞，基於故事大綱"""
+        
+        # 構建對話歷史
         history_text = ""
         if conversation_history:
-            history_text = "前面的對話內容：\n"
-            for msg in conversation_history[-6:]:  # 只取最近6條對話
+            history_text = "目前的對話內容：\n"
+            for msg in conversation_history:
                 history_text += f"{msg['role']}: {msg['content']}\n"
             history_text += "\n"
         
-        prompt = f"""你現在要扮演 {character_name}。請根據這個角色的特點、說話方式和觀點來回應，使用該角色的語言、身分、文化進行回答。針對對話主題：{topic}，{history_text}以 {character_name} 的身份，針對目前的對話內容進行回應。要求：1. 保持角色一致性，符合 {character_name} 的特點和說話風格2. 回應要自然流暢，與前面的對話內容相關3. 字數控制在 {word_limit} 字以內，千萬不能超過！非常重要！4. 不要重複前面已經說過的內容5. 展現這個角色獨特的觀點和個性，6. 回應時，需要考量整體對話的脈絡性，進行推動。請直接回應，不要加任何前綴或說明："""
+        # 計算對話進度
+        progress_info = f"目前進度：第{current_round}輪，共{total_rounds}輪"
+        if current_round <= total_rounds // 3:
+            stage = "對話初期，需要建立立場和觀點"
+        elif current_round <= total_rounds * 2 // 3:
+            stage = "對話中期，需要深入探討和交流意見"
+        else:
+            stage = "對話後期，需要總結或達成某種共識"
+        
+        prompt = f"""
+你現在要扮演 {character_name}。
+
+角色設定：
+{character_description}
+
+故事大綱：
+{story_outline}
+
+對話主題：{topic}
+
+{history_text}
+
+{progress_info}
+當前階段：{stage}
+
+請以 {character_name} 的身份，根據故事大綱的發展脈絡，針對當前對話內容進行回應。
+
+要求：
+1. 嚴格按照角色設定的性格、背景和特點來回應
+2. 回應要符合故事大綱的發展方向
+3. 考慮當前對話階段，確保對話有意義的推進
+4. 與前面的對話內容相關聯，保持邏輯連貫性
+5. 字數嚴格控制在 {word_limit} 字以內
+6. 展現角色獨特的觀點和立場
+7. 推動對話向故事大綱的方向發展
+
+請直接以 {character_name} 的身份回應，不要添加任何前綴或說明：
+"""
         
         return prompt
     
@@ -60,13 +141,27 @@ class ConversationManager:
         try:
             conversation = self.conversations[session_id]
             
+            # 確定當前角色的描述
+            if current_role == conversation['role1']:
+                character_description = conversation['role1_description']
+            else:
+                character_description = conversation['role2_description']
+            
+            # 計算當前輪數
+            current_round = len(conversation['messages']) // 2 + 1
+            
             prompt = self.generate_character_prompt(
                 current_role,
+                character_description,
                 conversation['topic'],
                 conversation['conversation_history'],
-                conversation['word_limit']
+                conversation['word_limit'],
+                conversation['story_outline'],
+                current_round,
+                conversation['rounds']
             )
             
+            # 生成回應
             response = self.model.generate_content(prompt)
             return response.text.strip()
             
@@ -86,6 +181,10 @@ class ConversationManager:
             self.conversations[session_id]['conversation_history'].append(message)
             return True
         return False
+    
+    def get_conversation(self, session_id):
+        """獲取對話資訊"""
+        return self.conversations.get(session_id)
 
 conversation_manager = ConversationManager()
 
@@ -103,6 +202,8 @@ def start_conversation():
         
         role1 = data.get('role1', '').strip()
         role2 = data.get('role2', '').strip()
+        role1_description = data.get('role1Description', '').strip()
+        role2_description = data.get('role2Description', '').strip()
         topic = data.get('topic', '').strip()
         word_limit = int(data.get('wordLimit', 150))
         rounds = int(data.get('rounds', 8))
@@ -112,10 +213,11 @@ def start_conversation():
         
         # 創建對話會話
         conversation_manager.create_conversation(
-            session_id, role1, role2, topic, word_limit, rounds
+            session_id, role1, role2, role1_description, role2_description, 
+            topic, word_limit, rounds
         )
         
-        # 在背景開始對話
+        # 在背景開始對話（包含生成故事大綱）
         thread = Thread(target=run_conversation_background, args=(session_id,))
         thread.daemon = True
         thread.start()
@@ -135,7 +237,28 @@ def run_conversation_background(session_id):
     try:
         conversation = conversation_manager.conversations[session_id]
         
+        # 首先生成故事大綱
+        logger.info(f"開始生成故事大綱 - Session: {session_id}")
+        story_outline = asyncio.run(conversation_manager.generate_story_outline(session_id))
+        
+        if story_outline:
+            socketio.emit('story_outline_generated', {
+                'outline': story_outline
+            })
+            logger.info(f"故事大綱生成完成 - Session: {session_id}")
+        else:
+            socketio.emit('story_outline_error', {
+                'message': '故事大綱生成失敗'
+            })
+            logger.error(f"故事大綱生成失敗 - Session: {session_id}")
+        
+        # 等待一下再開始對話
+        time.sleep(2)
+        
+        # 開始對話循環
         for round_num in range(1, conversation['rounds'] + 1):
+            logger.info(f"開始第 {round_num} 輪對話 - Session: {session_id}")
+            
             # 角色1發言
             socketio.emit('show_loading', {
                 'role': conversation['role1']
@@ -159,6 +282,7 @@ def run_conversation_background(session_id):
                 'is_role1': True
             })
             
+            logger.info(f"角色1({conversation['role1']})發言完成 - 第{round_num}輪")
             time.sleep(1)
             
             # 角色2發言
@@ -184,6 +308,7 @@ def run_conversation_background(session_id):
                 'is_role1': False
             })
             
+            logger.info(f"角色2({conversation['role2']})發言完成 - 第{round_num}輪")
             time.sleep(1)
         
         # 對話完成
@@ -191,20 +316,77 @@ def run_conversation_background(session_id):
             'total_rounds': conversation['rounds']
         })
         
+        logger.info(f"對話完成 - Session: {session_id}, 總輪數: {conversation['rounds']}")
+        
     except Exception as e:
-        logger.error(f"背景對話執行錯誤: {e}")
+        logger.error(f"背景對話執行錯誤 - Session: {session_id}, Error: {e}")
         socketio.emit('error', {'message': '對話過程中發生錯誤'})
+
+@app.route('/api/conversation/<session_id>', methods=['GET'])
+def get_conversation_info(session_id):
+    """獲取對話資訊的 API"""
+    try:
+        conversation = conversation_manager.get_conversation(session_id)
+        if not conversation:
+            return jsonify({'error': '找不到對話記錄'}), 404
+        
+        return jsonify({
+            'success': True,
+            'conversation': {
+                'role1': conversation['role1'],
+                'role2': conversation['role2'],
+                'role1_description': conversation['role1_description'],
+                'role2_description': conversation['role2_description'],
+                'topic': conversation['topic'],
+                'word_limit': conversation['word_limit'],
+                'rounds': conversation['rounds'],
+                'current_round': conversation['current_round'],
+                'story_outline': conversation['story_outline'],
+                'messages': conversation['messages']
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"獲取對話資訊錯誤: {e}")
+        return jsonify({'error': '獲取對話資訊失敗'}), 500
 
 @socketio.on('connect')
 def handle_connect():
     """WebSocket 連接處理"""
-    logger.info('客戶端已連接')
+    logger.info(f'客戶端已連接 - Session: {request.sid}')
     emit('connected', {'message': '連接成功'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """WebSocket 斷線處理"""
-    logger.info('客戶端已斷線')
+    logger.info(f'客戶端已斷線 - Session: {request.sid}')
+    
+    # 清理對話資料
+    if request.sid in conversation_manager.conversations:
+        del conversation_manager.conversations[request.sid]
+        logger.info(f'已清理對話資料 - Session: {request.sid}')
+
+@socketio.on('get_story_outline')
+def handle_get_story_outline(data):
+    """處理獲取故事大綱的請求"""
+    try:
+        session_id = data.get('session_id', request.sid)
+        conversation = conversation_manager.get_conversation(session_id)
+        
+        if conversation and conversation.get('story_outline'):
+            emit('story_outline_generated', {
+                'outline': conversation['story_outline']
+            })
+        else:
+            emit('story_outline_error', {
+                'message': '找不到故事大綱'
+            })
+            
+    except Exception as e:
+        logger.error(f"獲取故事大綱錯誤: {e}")
+        emit('story_outline_error', {
+            'message': '獲取故事大綱失敗'
+        })
 
 @app.errorhandler(404)
 def not_found(error):
@@ -212,8 +394,10 @@ def not_found(error):
 
 @app.errorhandler(500)
 def internal_error(error):
+    logger.error(f"伺服器內部錯誤: {error}")
     return jsonify({'error': '伺服器內部錯誤'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
+    logger.info(f"啟動伺服器，Port: {port}")
     socketio.run(app, host='0.0.0.0', port=port, debug=False)
