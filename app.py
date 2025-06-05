@@ -26,7 +26,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 class ConversationManager:
     def __init__(self):
         self.conversations = {}
-        self.model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp')
+        self.model = genai.GenerativeModel('models/gemini-2.5-flash-preview-05-20')
     
     def create_conversation(self, session_id, role1, role2, topic, word_limit, rounds):
         """創建新的對話會話"""
