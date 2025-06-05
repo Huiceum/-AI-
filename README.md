@@ -3,6 +3,9 @@
 ![AI角色對話系統](images/1.gif)
 
 
+![網址](https://ai-dialogue-system.onrender.com/)
+
+
 一個基於 Flask 和 Google Gemini API 的智能對話系統，讓使用者可以設定兩個 AI 角色進行自動對話。
 
 ## 功能
