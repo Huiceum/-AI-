@@ -464,6 +464,8 @@
     font-size: 14px;
     line-height: 1.5;
     white-space: pre-wrap;
+    max-height: 20px;
+    overflow: visible;
 }
 
 .outline-loading {
@@ -548,7 +550,7 @@
             </div>
             <div class="story-outline" id="storyOutline">
                 <div class="story-outline-title">
-                    📖 故事大綱
+                    <img src="/static/image/icon/icon-4.png" width="30" height="30" style="vertical-align: middle;"> 故事大綱
                 </div>
                 <div class="story-outline-content" id="storyOutlineContent">
                     <div class="outline-loading">
@@ -686,8 +688,8 @@
             socket.on('story_outline_error', function(data) {
                 const outlineContent = document.getElementById('storyOutlineContent');
                 if (outlineContent) {
-                    outlineContent.innerHTML = '<span style="color: #ef4444;">❌ 故事大綱生成失敗</span>';
-                    conversationState.storyOutline = '❌ 故事大綱生成失敗'; // 記錄錯誤狀態
+                    outlineContent.innerHTML = '<span style="color: #ef4444;"><img src="/static/image/icon/icon-7.png" width="30" height="30" style="vertical-align: middle;"> 故事大綱生成失敗</span>';
+                    conversationState.storyOutline = ' 故事大綱生成失敗'; // 記錄錯誤狀態
                 }
             });
         }
@@ -893,7 +895,7 @@
             endMessage.className = 'loading-indicator';
             endMessage.innerHTML = `
                 <div style="color: var(--accent-primary); font-weight: 600;">
-                    🎉 對話完成！共進行了 ${totalRounds} 輪對話
+                    對話完成！共進行了 ${totalRounds} 輪對話
                 </div>
             `;
             chatMessages.appendChild(endMessage);
@@ -907,7 +909,7 @@
             const chatMessages = document.getElementById('chatMessages');
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
-            errorDiv.textContent = `❌ ${message}`;
+            errorDiv.textContent = `<img src="/static/image/icon/icon-7.png" width="30" height="30" style="vertical-align: middle;"> ${message}`;
             chatMessages.appendChild(errorDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -1425,7 +1427,7 @@
             loadNotification.style.color = 'var(--accent-primary)';
             loadNotification.innerHTML = `
                 <div style="font-weight: 600;">
-                    ✅ 歷史記錄載入完成
+                    <img src="/static/image/icon/icon-6.png" width="30" height="30" style="vertical-align: middle;"> 歷史記錄載入完成
                 </div>
                 <div style="font-size: 12px; margin-top: 4px;">
                     記錄代號: ${record.id}
@@ -1538,7 +1540,7 @@
                         saveNotification.style.color = 'var(--accent-primary)';
                         saveNotification.innerHTML = `
                             <div style="font-weight: 600;">
-                                💾 對話記錄已自動儲存
+                                <img src="/static/image/icon/icon-9.png" width="30" height="30" style="vertical-align: middle;"> 對話記錄已自動儲存
                             </div>
                             <div style="font-size: 12px; margin-top: 4px;">
                                 記錄代號: ${recordId}
