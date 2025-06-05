@@ -151,6 +151,7 @@
             color: var(--text-primary);
             font-size: 14px;
             transition: border-color 0.2s, box-shadow 0.2s;
+
         }
 
         input:focus, textarea:focus, select:focus {
@@ -163,6 +164,11 @@
             resize: vertical;
             min-height: 80px;
         }
+
+        textarea::-webkit-scrollbar {
+            display: none;
+        }
+
 
         .avatar-selector {
             margin-top: 8px;
@@ -269,6 +275,10 @@
             padding: 20px;
             min-height: 400px;
             max-height: 800px;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            display: none;
         }
 
         .message {
@@ -450,6 +460,10 @@
     overflow-y: auto; /* 當內容超出高度時，顯示垂直滾動條 */
     
 }
+
+        .story-outline::-webkit-scrollbar {
+            display: none;
+        }
 
 .story-outline.show {
     display: block;
