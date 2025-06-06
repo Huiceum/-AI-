@@ -67,7 +67,7 @@
 │           └── ...（共24張圖）
 ├── templates/
 │   └── index.html
-├── .AI-.code-workspace
+│   └── -AI-.code-workspace
 ├── .env
 ├── Dockerfile
 ├── render.yaml
