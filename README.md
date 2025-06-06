@@ -64,7 +64,7 @@
 │       └── role/
 │           ├── role-1.png
 │           ├── role-2.png
-│           └── ...（共19張圖）
+│           └── ...（共24張圖）
 ├── templates/
 │   └── index.html
 ├── .AI-.code-workspace

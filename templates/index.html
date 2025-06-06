@@ -23,6 +23,9 @@
             --role2-bg: #f3f4f6;
             --role2-border: #d1d5db;
             --role2-text: #000000;
+            --narrator-bg: #f0fdf4; /* Light green for narrator in light mode */
+            --narrator-text: #166534; /* Dark green text */
+            --narrator-border: #a7f3d0; /* Green border */
         }
 
         [data-theme="dark"] {
@@ -35,12 +38,15 @@
             --accent-hover: #3b82f6;
             --card-bg: #1e293b;
             --dot-color: rgba(100, 116, 139, 0.1);
-            --role1-bg: #191a1b;
+            --role1-bg: #261a1b;
             --role1-border: #000000;
             --role1-text: #e6e6e6;
             --role2-bg: #2e2e2e;
             --role2-border: #e6e6e6;
             --role2-text: #ffffff;
+            --narrator-bg: #064e3b; /* Darker green for narrator in dark mode */
+            --narrator-text: #dcfce7; /* Lighter green text */
+            --narrator-border: #0d9488; /* Teal border */
         }
 
         * {
@@ -448,45 +454,45 @@
 
 
         .story-outline {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 16px;
-    margin: 16px 0;
-    display: none;
-    
-}
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            display: none;
+            
+        }
 
         .story-outline::-webkit-scrollbar {
             display: none;
         }
 
-.story-outline.show {
-    display: block;
-}
+        .story-outline.show {
+            display: block;
+        }
 
-.story-outline-title {
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+        .story-outline-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-.story-outline-content {
-    color: var(--text-secondary);
-    font-size: 14px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-}
+        .story-outline-content {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
 
-.outline-loading {
-    display: block;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-secondary);
-}
+        .outline-loading {
+            display: block;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+        }
 
         /* 新增的 CSS 規則 */
         .story-outline.collapsible {
@@ -498,6 +504,73 @@
         /* 隱藏滾動條（如果需要，原來的規則已經有了） */
         .story-outline.collapsible::-webkit-scrollbar {
             display: none;
+        }
+
+        /* NEW: 旁白模式相關 CSS */
+        .form-group.checkbox {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-group.checkbox label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 0; /* Override default label margin */
+            font-weight: normal;
+        }
+
+        .form-group.checkbox input[type="checkbox"] {
+            width: auto; /* Don't take full width */
+            margin-right: 8px;
+            transform: scale(1.2); /* Make checkbox slightly larger */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--bg-secondary);
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            flex-shrink: 0;
+        }
+
+        .form-group.checkbox input[type="checkbox"]:checked {
+            background-color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .form-group.checkbox input[type="checkbox"]:checked::before {
+            content: '✔';
+            display: block;
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            line-height: 18px;
+        }
+
+        .message.narrator {
+            background: var(--narrator-bg);
+            border: 1px solid var(--narrator-border);
+            margin: 20px auto; /* Centered with more vertical space */
+            max-width: 70%; /* Narrower width for narrator */
+            padding: 15px 25px;
+            border-radius: 12px;
+            text-align: center;
+            font-style: italic;
+            color: var(--narrator-text);
+            animation: fadeIn 0.5s ease-out;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
@@ -562,6 +635,14 @@
                 </div>
             </div>
 
+            <!-- NEW: 旁白模式勾選框 -->
+            <div class="form-group checkbox">
+                <label>
+                    <input type="checkbox" id="narratorModeCheckbox">
+                    旁白模式 (描述場景與氛圍)
+                </label>
+            </div>
+
             <button id="startBtn" class="start-btn" onclick="startConversation()"><img src="/static/image/icon/icon-8.png" width="30" height="30" style="vertical-align: middle;"></button>
         </div>
 
@@ -597,14 +678,14 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <script>
-            let socket = null;
+        // MODIFIED: conversationState 新增 narratorMode 屬性
+        let socket = null;
         let conversationState = {
             isRunning: false,
             currentRound: 0,
             totalRounds: 0,
             role1Name: '',
             role2Name: '',
-            // MODIFIED: 新增角色描述和故事大綱屬性
             role1Description: '',
             role2Description: '',
             storyOutline: '', 
@@ -613,7 +694,8 @@
             topic: '',
             wordLimit: 150,
             messages: [],
-            totalMessages: 0
+            totalMessages: 0,
+            narratorMode: false // NEW: 旁白模式狀態
         };
 
         // 初始化頭像選擇器
@@ -621,8 +703,8 @@
             const avatar1Grid = document.getElementById('avatar1Grid');
             const avatar2Grid = document.getElementById('avatar2Grid');
             
-            // 生成1-19的頭像選項
-            for (let i = 1; i <= 19; i++) {
+            // 生成1-26的頭像選項
+            for (let i = 1; i <= 26; i++) {
                 const imagePath = `/static/image/role/role-${i}.png`;
                 
                 // 角色一頭像
@@ -718,6 +800,11 @@
                     conversationState.storyOutline = ' 故事大綱生成失敗'; // 記錄錯誤狀態
                 }
             });
+
+            // NEW: 旁白訊息事件監聽器
+            socket.on('new_narrator_message', function(data) {
+                addNarratorMessage(data.content);
+            });
         }
 
         function updateConnectionStatus(connected) {
@@ -739,15 +826,16 @@
             toggleBtn.innerHTML = newTheme === 'dark' ? '<img src="/static/image/icon/icon-12.png" width="30" height="30" style="vertical-align: middle;">' : '<img src="/static/image/icon/icon-11.png" width="30" height="30" style="vertical-align: middle;">';
         }
 
-        // MODIFIED: startConversation 函數，新增角色描述參數和顯示故事大綱區域
+        // MODIFIED: startConversation 函數，新增角色描述參數和顯示故事大綱區域，並傳遞旁白模式設定
         async function startConversation() {
             const role1 = document.getElementById('role1').value.trim();
             const role2 = document.getElementById('role2').value.trim();
-            const role1Description = document.getElementById('role1Description').value.trim(); // NEW
-            const role2Description = document.getElementById('role2Description').value.trim(); // NEW
+            const role1Description = document.getElementById('role1Description').value.trim();
+            const role2Description = document.getElementById('role2Description').value.trim();
             const topic = document.getElementById('topic').value.trim();
             const wordLimit = parseInt(document.getElementById('wordLimit').value);
             const rounds = parseInt(document.getElementById('rounds').value);
+            const narratorMode = document.getElementById('narratorModeCheckbox').checked; // NEW: 取得旁白模式設定
 
             if (!role1 || !role2 || !topic) {
                 showError('請完整填寫角色名稱和對話話題');
@@ -766,13 +854,14 @@
                 totalRounds: rounds,
                 role1Name: role1,
                 role2Name: role2,
-                role1Description: role1Description, // NEW
-                role2Description: role2Description, // NEW
+                role1Description: role1Description,
+                role2Description: role2Description,
                 topic: topic,
                 wordLimit: wordLimit,
                 messages: [],
                 totalMessages: 0,
-                storyOutline: '' // 重置故事大綱
+                storyOutline: '', // 重置故事大綱
+                narratorMode: narratorMode // NEW: 設定旁白模式狀態
             };
 
             updateChatHeader();
@@ -788,11 +877,12 @@
                     body: JSON.stringify({
                         role1: role1,
                         role2: role2,
-                        role1Description: role1Description, // NEW
-                        role2Description: role2Description, // NEW
+                        role1Description: role1Description,
+                        role2Description: role2Description,
                         topic: topic,
                         wordLimit: wordLimit,
-                        rounds: rounds
+                        rounds: rounds,
+                        narratorMode: narratorMode // NEW: 傳遞旁白模式設定
                     })
                 });
 
@@ -802,7 +892,7 @@
                     throw new Error(data.error || '開始對話失敗');
                 }
 
-                // 顯示故事大綱區域 (NEW)
+                // 顯示故事大綱區域
                 document.getElementById('storyOutline').classList.add('show');
                 
                 addProgressBar();
@@ -825,6 +915,9 @@
             chatTitle.appendChild(document.createTextNode(`${conversationState.role1Name} vs ${conversationState.role2Name}`));
             
             chatSubtitle.textContent = `話題：${conversationState.topic} | ${conversationState.totalRounds}輪對話`;
+            if (conversationState.narratorMode) { // NEW: 標示旁白模式開啟
+                chatSubtitle.textContent += ' (旁白模式啟用)';
+            }
         }
 
         function clearMessages() {
@@ -855,6 +948,18 @@
             `;
             
             chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // NEW: 增加旁白訊息的函數
+        function addNarratorMessage(content) {
+            const chatMessages = document.getElementById('chatMessages');
+            const narratorDiv = document.createElement('div');
+            narratorDiv.className = 'message narrator'; // 使用新增的 CSS 類別
+            narratorDiv.innerHTML = `
+                <div class="message-content">${content}</div>
+            `;
+            chatMessages.appendChild(narratorDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
@@ -906,12 +1011,18 @@
             const progressText = document.querySelector('#progress div:last-child');
             
             if (progressFill && progressText) {
-                const totalMessages = conversationState.totalRounds * 2;
+                // 每輪有兩個角色發言，所以總訊息數是總輪數 * 2
+                // 如果啟用旁白模式，每輪還會多一個旁白訊息
+                let totalExpectedMessages = conversationState.totalRounds * 2;
+                if (conversationState.narratorMode) {
+                    totalExpectedMessages += conversationState.totalRrounds; // 每輪多一個旁白
+                }
+
                 const currentMessages = conversationState.totalMessages;
-                const percentage = (currentMessages / totalMessages) * 100;
+                const percentage = (currentMessages / totalExpectedMessages) * 100; // 更新百分比計算
                 
                 progressFill.style.width = `${percentage}%`;
-                progressText.textContent = `對話進度：${currentMessages} / ${totalMessages}`;
+                progressText.textContent = `對話進度：${currentMessages} / ${totalExpectedMessages}`;
             }
         }
 
@@ -935,7 +1046,7 @@
             const chatMessages = document.getElementById('chatMessages');
             const errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
-            errorDiv.textContent = `<img src="/static/image/icon/icon-7.png" width="30" height="30" style="vertical-align: middle;"> ${message}`;
+            errorDiv.innerHTML = `<img src="/static/image/icon/icon-7.png" width="30" height="30" style="vertical-align: middle;"> ${message}`;
             chatMessages.appendChild(errorDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -971,6 +1082,15 @@
             // MODIFIED: 在頁面載入時設置預設的角色描述
             document.getElementById('role1Description').value = '聰明但懶惰的小學生，經常依賴哆啦A夢的道具解決問題，對新科技充滿好奇心但缺乏實際行動力。';
             document.getElementById('role2Description').value = '來自22世紀的機器貓，善良有耐心，擁有四次元口袋和各種神奇道具，總是幫助大雄解決困難。';
+
+            // NEW: 初始化旁白模式勾選框的事件監聽
+            const narratorModeCheckbox = document.getElementById('narratorModeCheckbox');
+            if (narratorModeCheckbox) {
+                narratorModeCheckbox.addEventListener('change', (event) => {
+                    conversationState.narratorMode = event.target.checked;
+                    console.log('旁白模式已' + (conversationState.narratorMode ? '啟用' : '關閉'));
+                });
+            }
         });
 
 
@@ -1041,35 +1161,47 @@
     const ConversationRecorder = {
         currentSession: null,
         
-        // MODIFIED: startRecording 函數，新增角色描述和故事大綱參數
+        // MODIFIED: startRecording 函數，新增角色描述參數和故事大綱參數，以及旁白模式
         startRecording(sessionData) {
             this.currentSession = {
                 role1Name: sessionData.role1Name,
                 role2Name: sessionData.role2Name,
-                role1Description: sessionData.role1Description || '', // NEW
-                role2Description: sessionData.role2Description || '', // NEW
+                role1Description: sessionData.role1Description || '',
+                role2Description: sessionData.role2Description || '',
                 role1Avatar: sessionData.role1Avatar,
                 role2Avatar: sessionData.role2Avatar,
                 topic: sessionData.topic,
                 wordLimit: sessionData.wordLimit,
                 totalRounds: sessionData.totalRounds,
-                storyOutline: sessionData.storyOutline || '', // NEW
+                storyOutline: sessionData.storyOutline || '',
+                narratorMode: sessionData.narratorMode || false, // NEW: 儲存旁白模式設定
                 messages: [],
                 startTime: new Date().toISOString(),
                 status: 'recording'
             };
         },
         
+        // MODIFIED: addMessage 函數，現在能處理兩種訊息 (對話和旁白)
         addMessage(messageData) {
             if (!this.currentSession) return;
             
-            this.currentSession.messages.push({
-                roleName: messageData.roleName,
-                content: messageData.content,
-                isRole1: messageData.isRole1,
-                turnNumber: messageData.turnNumber,
-                timestamp: new Date().toISOString()
-            });
+            // 判斷是角色對話還是旁白
+            if (messageData.type === 'narrator') {
+                this.currentSession.messages.push({
+                    type: 'narrator', // 新增訊息類型
+                    content: messageData.content,
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                this.currentSession.messages.push({
+                    type: 'dialogue', // 新增訊息類型
+                    roleName: messageData.roleName,
+                    content: messageData.content,
+                    isRole1: messageData.isRole1,
+                    turnNumber: messageData.turnNumber,
+                    timestamp: new Date().toISOString()
+                });
+            }
         },
         
         // MODIFIED: finishRecording 函數，確保故事大綱被保存
@@ -1084,7 +1216,8 @@
 
             this.currentSession.stats = {
                 totalMessages: this.currentSession.messages.length,
-                actualRounds: Math.ceil(this.currentSession.messages.length / 2),
+                // actualRounds 根據實際對話訊息（不含旁白）來計算
+                actualRounds: Math.ceil(this.currentSession.messages.filter(m => m.type === 'dialogue').length / 2),
                 duration: this.calculateDuration()
             };
             
@@ -1308,10 +1441,11 @@
             </style>
             
             <div class="history-header">
-<div class="history-title">
-  <img src="/static/image/icon/icon-5.png" width="30" height="30" style="vertical-align: middle;">
-  對話歷史記錄
-</div>                <div class="history-actions">
+                <div class="history-title">
+                    <img src="/static/image/icon/icon-5.png" width="30" height="30" style="vertical-align: middle;">
+                    對話歷史記錄
+                </div>
+                <div class="history-actions">
                     <button class="history-btn secondary" onclick="toggleHistoryPanel()">收起</button>
                     <button class="history-btn danger" onclick="clearAllHistory()">清空全部</button>
                 </div>
@@ -1359,7 +1493,7 @@
                     </div>
                     <div class="history-info">
                         <div class="history-roles">${record.role1Name} vs ${record.role2Name}</div>
-                        <div class="history-topic">${record.topic}</div>
+                        <div class="history-topic">${record.topic}${record.narratorMode ? ' (旁白)' : ''}</div> <!-- NEW: 顯示旁白模式狀態 -->
                     </div>
                     <div class="history-meta">
                         <div>${timeStr}</div>
@@ -1380,7 +1514,7 @@
         }
     };
     
-    // MODIFIED: 載入對話記錄功能
+    // MODIFIED: 載入對話記錄功能 (需要重新構造訊息顯示)
     window.loadConversationRecord = function(recordId) {
         const records = StorageManager.getAllRecords();
         const record = records.find(r => r.id === recordId);
@@ -1411,24 +1545,31 @@
         document.getElementById('role1Description').value = record.role1Description || '';
         document.getElementById('role2Description').value = record.role2Description || '';
         
+        // NEW: 載入旁白模式勾選框的狀態 (此處是為了顯示設定，不影響對話行為)
+        const narratorModeCheckbox = document.getElementById('narratorModeCheckbox');
+        if (narratorModeCheckbox) {
+            narratorModeCheckbox.checked = record.narratorMode || false;
+        }
+
         // 更新頭像選擇
         updateAvatarSelection(1, record.role1Avatar);
         updateAvatarSelection(2, record.role2Avatar);
         
-        // 更新對話狀態 (確保角色描述和故事大綱也更新)
+        // 更新對話狀態 (確保角色描述、故事大綱、旁白模式也更新)
         conversationState.role1Name = record.role1Name;
         conversationState.role2Name = record.role2Name;
-        conversationState.role1Description = record.role1Description || ''; // NEW
-        conversationState.role2Description = record.role2Description || ''; // NEW
+        conversationState.role1Description = record.role1Description || '';
+        conversationState.role2Description = record.role2Description || '';
         conversationState.role1Avatar = record.role1Avatar;
         conversationState.role2Avatar = record.role2Avatar;
         conversationState.topic = record.topic;
         conversationState.wordLimit = record.wordLimit;
         conversationState.totalRounds = record.totalRounds;
-        conversationState.storyOutline = record.storyOutline || ''; // NEW
+        conversationState.storyOutline = record.storyOutline || '';
+        conversationState.narratorMode = record.narratorMode || false; // 載入旁白模式狀態到當前會話
         
-        // 顯示故事大綱 (NEW)
-        document.getElementById('storyOutline').classList.remove('show'); // 先隱藏並清空
+        // 顯示故事大綱
+        document.getElementById('storyOutline').classList.remove('show');
         document.getElementById('storyOutlineContent').textContent = '';
         if (record.storyOutline) {
             document.getElementById('storyOutline').classList.add('show');
@@ -1439,11 +1580,15 @@
         updateChatHeader();
         
         // 清空並重新載入訊息
-        clearMessages(); // 這會自動清除故事大綱顯示，所以要確保之後再顯示
+        clearMessages();
         
         if (record.messages && record.messages.length > 0) {
             record.messages.forEach(msg => {
-                addMessage(msg.roleName, msg.content, msg.isRole1, msg.turnNumber);
+                if (msg.type === 'dialogue') {
+                    addMessage(msg.roleName, msg.content, msg.isRole1, msg.turnNumber);
+                } else if (msg.type === 'narrator') {
+                    addNarratorMessage(msg.content);
+                }
             });
             
             // 顯示載入完成訊息
@@ -1510,76 +1655,81 @@
         createHistoryPanel();
         updateHistoryPanel();
         
-        // 覆蓋原始的 startConversation 函數
-        // 注意：這裡假設外層的 startConversation 已經被修改
-        // 如果沒有，您可能需要在此處捕獲原始函數並呼叫它
-        const originalStartConversation = window.startConversation; // 這裡的 original 是指已經被修改過的那個
-        if (originalStartConversation) {
-            window.startConversation = async function() {
-                // 在這裡您可以添加額外的邏輯，或者直接調用修改過的原函數
-                await originalStartConversation.call(this); // 調用修改過後的 startConversation 
-                
-                if (conversationState.isRunning) {
-                    ConversationRecorder.startRecording({
-                        role1Name: conversationState.role1Name,
-                        role2Name: conversationState.role2Name,
-                        role1Description: conversationState.role1Description, // NEW: 傳遞描述
-                        role2Description: conversationState.role2Description, // NEW: 傳遞描述
-                        role1Avatar: conversationState.role1Avatar,
-                        role2Avatar: conversationState.role2Avatar,
-                        topic: conversationState.topic,
-                        wordLimit: conversationState.wordLimit,
-                        totalRounds: conversationState.totalRounds,
-                        storyOutline: conversationState.storyOutline // NEW: 傳遞故事大綱
-                    });
-                }
-            };
-        }
-        
-        // 覆蓋原始的 addMessage 函數
-        const originalAddMessage = window.addMessage;
-        if (originalAddMessage) {
-            window.addMessage = function(roleName, content, isRole1, turnNumber) {
-                originalAddMessage.call(this, roleName, content, isRole1, turnNumber);
-                
-                ConversationRecorder.addMessage({
-                    roleName: roleName,
-                    content: content,
-                    isRole1: isRole1,
-                    turnNumber: turnNumber
+        // 覆蓋原始的 startConversation 函數 (以加入記錄邏輯)
+        const originalStartConversation = window.startConversation;
+        window.startConversation = async function() {
+            await originalStartConversation.apply(this, arguments);
+            
+            if (conversationState.isRunning) {
+                ConversationRecorder.startRecording({
+                    role1Name: conversationState.role1Name,
+                    role2Name: conversationState.role2Name,
+                    role1Description: conversationState.role1Description,
+                    role2Description: conversationState.role2Description,
+                    role1Avatar: conversationState.role1Avatar,
+                    role2Avatar: conversationState.role2Avatar,
+                    topic: conversationState.topic,
+                    wordLimit: conversationState.wordLimit,
+                    totalRounds: conversationState.totalRounds,
+                    storyOutline: conversationState.storyOutline,
+                    narratorMode: conversationState.narratorMode // NEW: 傳遞旁白模式設定
                 });
-            };
-        }
+            }
+        };
         
-        // 覆蓋原始的 finishConversation 函數
+        // 覆蓋原始的 addMessage 函數 (以加入記錄邏輯)
+        const originalAddMessage = window.addMessage;
+        window.addMessage = function(roleName, content, isRole1, turnNumber) {
+            originalAddMessage.call(this, roleName, content, isRole1, turnNumber);
+            
+            ConversationRecorder.addMessage({
+                type: 'dialogue', // 標記為對話訊息
+                roleName: roleName,
+                content: content,
+                isRole1: isRole1,
+                turnNumber: turnNumber
+            });
+        };
+
+        // NEW: 覆蓋原始的 addNarratorMessage 函數 (以加入記錄邏輯)
+        const originalAddNarratorMessage = window.addNarratorMessage;
+        window.addNarratorMessage = function(content) {
+            originalAddNarratorMessage.call(this, content);
+
+            ConversationRecorder.addMessage({
+                type: 'narrator', // 標記為旁白訊息
+                content: content
+            });
+            // 旁白訊息也計入總訊息數，更新進度條
+            conversationState.totalMessages++;
+            updateProgress();
+        };
+        
+        // 覆蓋原始的 finishConversation 函數 (以加入記錄邏輯)
         const originalFinishConversation = window.finishConversation;
-        if (originalFinishConversation) {
-            window.finishConversation = function(totalRounds) {
-                originalFinishConversation.call(this, totalRounds);
-                
-                const recordId = ConversationRecorder.finishRecording();
-                if (recordId) {
-                    const chatMessages = document.getElementById('chatMessages');
-                    if (chatMessages) {
-                        const saveNotification = document.createElement('div');
-                        saveNotification.className = 'loading-indicator';
-                        saveNotification.style.color = 'var(--accent-primary)';
-                        saveNotification.innerHTML = `
-                            <div style="font-weight: 600;">
-                                <img src="/static/image/icon/icon-9.png" width="30" height="30" style="vertical-align: middle;"> 對話記錄已自動儲存
-                            </div>
-                            <div style="font-size: 12px; margin-top: 4px;">
-                                記錄代號: ${recordId}
-                            </div>
-                        `;
-                        chatMessages.appendChild(saveNotification);
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }
+        window.finishConversation = function(totalRounds) {
+            originalFinishConversation.call(this, totalRounds);
+            
+            const recordId = ConversationRecorder.finishRecording();
+            if (recordId) {
+                const chatMessages = document.getElementById('chatMessages');
+                if (chatMessages) {
+                    const saveNotification = document.createElement('div');
+                    saveNotification.className = 'loading-indicator';
+                    saveNotification.style.color = 'var(--accent-primary)';
+                    saveNotification.innerHTML = `
+                        <div style="font-weight: 600;">
+                            <img src="/static/image/icon/icon-9.png" width="30" height="30" style="vertical-align: middle;"> 對話記錄已自動儲存
+                        </div>
+                        <div style="font-size: 12px; margin-top: 4px;">
+                            記錄代號: ${recordId}
+                        </div>
+                    `;
+                    chatMessages.appendChild(saveNotification);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
-            };
-        }
-        // 注意：loadConversationRecord 已經被直接修改，而不是在這裡被再次包裹
-        // 所以此處不需要再次定義或包裹 loadConversationRecord
+            }
+        };
     }
     
     // 等待頁面載入完成後初始化
@@ -1673,7 +1823,9 @@
             window.loadConversationRecord = function(recordId) {
                 originalLoadConversationRecord.apply(this, arguments); // 調用原始載入函數
 
-                const records = StorageManager.getAllRecords(); // 假設 StorageManager 可用
+                // StorageManager 需要確保在 loadConversationRecord 調用時是可用的。
+                // 這裡假設它已經在 history 模組的 IIFE 中被初始化。
+                const records = (typeof StorageManager !== 'undefined') ? StorageManager.getAllRecords() : [];
                 const record = records.find(r => r.id === recordId);
                 const storyOutlineContainer = document.getElementById('storyOutline');
 
@@ -1685,12 +1837,6 @@
                     storyOutlineContainer.classList.remove('collapsible');
                 }
             };
-
-            // 因為 clearMessages 也會被觸發，確保它不會與這裡的邏輯衝突
-            // clearMessages 函數本身會清除 storyOutline，所以這裡不需要額外處理
-            // 它已經包含了 document.getElementById('storyOutline').classList.remove('show');
-            // 和 document.getElementById('storyOutlineContent').textContent = '';
-            // 所以，在清空時，collapsible class也會被移除
         });
     </script>
 </body>

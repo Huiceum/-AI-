@@ -26,10 +26,11 @@ genai.configure(api_key=GEMINI_API_KEY)
 class ConversationManager:
     def __init__(self):
         self.conversations = {}
-        self.model = genai.GenerativeModel('models/gemini-2.5-flash-preview-05-20')
+        # 使用 Gemini 1.5 Flash 模型，針對速度進行優化
+        self.model = genai.GenerativeModel('models/gemini-1.5-flash') 
     
-    def create_conversation(self, session_id, role1, role2, role1_description, role2_description, topic, word_limit, rounds):
-        """創建新的對話會話"""
+    def create_conversation(self, session_id, role1, role2, role1_description, role2_description, topic, word_limit, rounds, narrator_mode):
+        """創建新的對話會話，新增 narrator_mode 參數"""
         self.conversations[session_id] = {
             'role1': role1,
             'role2': role2,
@@ -39,9 +40,10 @@ class ConversationManager:
             'word_limit': word_limit,
             'rounds': rounds,
             'current_round': 0,
-            'messages': [],
-            'conversation_history': [],
-            'story_outline': None
+            'messages': [], # 儲存實際對話和旁白訊息
+            'conversation_history': [], # 僅儲存對話訊息，用於生成角色回應
+            'story_outline': None,
+            'narrator_mode': narrator_mode # NEW: 儲存旁白模式設定
         }
         return True
     
@@ -66,13 +68,14 @@ class ConversationManager:
 3. 對話的發展脈絡（從開始到結束的情節走向）
 4. 可能的衝突點和解決方向
 5. 預期的對話結果或結論
-
+6. 大綱的字數不超過250字，以摘要的方式呈現劇情走向就好了。
 大綱要能引導{conversation['rounds']}輪的自然對話發展，每輪對話都要有意義和推進作用。
 
-請直接回答故事大綱，不需要其他說明：
+請直接回答故事大綱，不需要其他說明，也不要試圖使用加粗等文字格式：
 """
             
-            response = self.model.generate_content(outline_prompt)
+            # 使用 asyncio.to_thread 執行同步的 API 呼叫，避免阻塞
+            response = await asyncio.to_thread(self.model.generate_content, outline_prompt)
             outline = response.text.strip()
             
             # 儲存故事大綱
@@ -95,7 +98,7 @@ class ConversationManager:
                 history_text += f"{msg['role']}: {msg['content']}\n"
             history_text += "\n"
         
-        # 計算對話進度
+        # 計算對話進度，輔助 LLM 理解當前階段
         progress_info = f"目前進度：第{current_round}輪，共{total_rounds}輪"
         if current_round <= total_rounds // 3:
             stage = "對話初期，需要建立立場和觀點"
@@ -147,8 +150,8 @@ class ConversationManager:
             else:
                 character_description = conversation['role2_description']
             
-            # 計算當前輪數
-            current_round = len(conversation['messages']) // 2 + 1
+            # 計算當前輪數（基於 conversation_history 的長度）
+            current_round = len(conversation['conversation_history']) // 2 + 1
             
             prompt = self.generate_character_prompt(
                 current_role,
@@ -161,24 +164,85 @@ class ConversationManager:
                 conversation['rounds']
             )
             
-            # 生成回應
-            response = self.model.generate_content(prompt)
+            # 使用 asyncio.to_thread 執行同步的 API 呼叫
+            response = await asyncio.to_thread(self.model.generate_content, prompt)
             return response.text.strip()
             
         except Exception as e:
             logger.error(f"生成回應時發生錯誤: {e}")
             return f"抱歉，{current_role} 暫時無法回應，請稍後再試。"
+
+    # NEW: 生成旁白描述的函數
+    async def generate_narrator_description(self, session_id):
+        """生成旁白描述"""
+        try:
+            conversation = self.conversations[session_id]
+            
+            # 獲取最近的對話內容作為旁白的上下文
+            # 這裡我們使用 conversation['messages'] 因為它包含了所有已發送的內容
+            # 但旁白的提示詞應只關注最近的對話 "實質內容"
+            
+            # 從 conversation_history 中獲取最新的兩則對話（如果存在）
+            recent_dialogue = conversation['conversation_history'][-2:]
+            
+            recent_dialogue_text = ""
+            if recent_dialogue:
+                recent_dialogue_text = "最近對話內容：\n"
+                for msg in recent_dialogue:
+                    recent_dialogue_text += f"{msg['role']}: {msg['content']}\n"
+            
+            narrator_prompt = f"""
+你是一位資深的小說旁白者，精於描繪場景、人物動作、內心狀態和氛圍。
+當前故事背景：
+主題：{conversation['topic']}
+角色1: {conversation['role1']} ({conversation['role1_description']})
+角色2: {conversation['role2']} ({conversation['role2_description']})
+故事大綱：{conversation['story_outline']}
+目前進度：第{conversation['current_round']}輪
+
+{recent_dialogue_text}
+
+請根據以上資訊和最新的對話內容，以客觀、生動的第三人稱視角，簡潔地描述當前場景的動作、氛圍變化，以及角色可能展現出的情緒或反應。
+
+請注意：
+1. 描述內容應與對話進程和故事大綱保持一致。
+2. 字數請控制在50-80字之間。
+3. 直接回答旁白內容，不要添加任何前綴、後綴或說明。
+"""
+            # 使用 asyncio.to_thread 執行同步的 API 呼叫
+            response = await asyncio.to_thread(self.model.generate_content, narrator_prompt)
+            return response.text.strip()
+            
+        except Exception as e:
+            logger.error(f"生成旁白描述時發生錯誤: {e}")
+            return "（旁白描述生成失敗，請聯繫管理員。）" # 提供一個更友好的錯誤提示
     
-    def add_message(self, session_id, role, content, round_num):
-        """添加消息到對話歷史"""
+    def add_message(self, session_id, msg_type, role=None, content=None, round_num=None, is_role1=None):
+        """
+        添加訊息到對話歷史 (統一處理對話和旁白訊息)。
+        msg_type: 'dialogue' 或 'narrator'
+        """
         if session_id in self.conversations:
-            message = {
-                'role': role,
-                'content': content,
-                'round': round_num
-            }
-            self.conversations[session_id]['messages'].append(message)
-            self.conversations[session_id]['conversation_history'].append(message)
+            if msg_type == 'dialogue':
+                message_obj = {
+                    'type': 'dialogue',
+                    'role': role,
+                    'content': content,
+                    'round': round_num,
+                    'is_role1': is_role1
+                }
+                self.conversations[session_id]['messages'].append(message_obj)
+                self.conversations[session_id]['conversation_history'].append({
+                    'role': role,
+                    'content': content
+                }) # 只有對話內容才加入 conversation_history
+            elif msg_type == 'narrator':
+                message_obj = {
+                    'type': 'narrator',
+                    'content': content,
+                    'round': round_num # 旁白也標註輪次
+                }
+                self.conversations[session_id]['messages'].append(message_obj)
             return True
         return False
     
@@ -207,14 +271,15 @@ def start_conversation():
         topic = data.get('topic', '').strip()
         word_limit = int(data.get('wordLimit', 150))
         rounds = int(data.get('rounds', 8))
+        narrator_mode = data.get('narratorMode', False) # NEW: 接收旁白模式設定
         
         if not all([role1, role2, topic]):
             return jsonify({'error': '請完整填寫所有必要資訊'}), 400
         
-        # 創建對話會話
+        # 創建對話會話，傳遞 narrator_mode
         conversation_manager.create_conversation(
             session_id, role1, role2, role1_description, role2_description, 
-            topic, word_limit, rounds
+            topic, word_limit, rounds, narrator_mode
         )
         
         # 在背景開始對話（包含生成故事大綱）
@@ -233,7 +298,7 @@ def start_conversation():
         return jsonify({'error': '開始對話失敗'}), 500
 
 def run_conversation_background(session_id):
-    """在背景執行對話流程"""
+    """在背景執行對話流程，新增旁白生成"""
     try:
         conversation = conversation_manager.conversations[session_id]
         
@@ -257,6 +322,7 @@ def run_conversation_background(session_id):
         
         # 開始對話循環
         for round_num in range(1, conversation['rounds'] + 1):
+            conversation['current_round'] = round_num # 更新當前輪數
             logger.info(f"開始第 {round_num} 輪對話 - Session: {session_id}")
             
             # 角色1發言
@@ -264,14 +330,15 @@ def run_conversation_background(session_id):
                 'role': conversation['role1']
             })
             
-            time.sleep(2)  # 模擬思考時間
+            time.sleep(1)  # 模擬思考時間
             
             response1 = asyncio.run(conversation_manager.generate_response(
                 session_id, conversation['role1']
             ))
             
             conversation_manager.add_message(
-                session_id, conversation['role1'], response1, round_num
+                session_id, 'dialogue', role=conversation['role1'], content=response1, 
+                round_num=round_num, is_role1=True
             )
             
             socketio.emit('hide_loading')
@@ -290,14 +357,15 @@ def run_conversation_background(session_id):
                 'role': conversation['role2']
             })
             
-            time.sleep(2)  # 模擬思考時間
+            time.sleep(1)  # 模擬思考時間
             
             response2 = asyncio.run(conversation_manager.generate_response(
                 session_id, conversation['role2']
             ))
             
             conversation_manager.add_message(
-                session_id, conversation['role2'], response2, round_num
+                session_id, 'dialogue', role=conversation['role2'], content=response2, 
+                round_num=round_num, is_role1=False
             )
             
             socketio.emit('hide_loading')
@@ -310,6 +378,25 @@ def run_conversation_background(session_id):
             
             logger.info(f"角色2({conversation['role2']})發言完成 - 第{round_num}輪")
             time.sleep(1)
+
+            # NEW: 旁白發言 (在每輪對話結束後)
+            if conversation['narrator_mode']:
+                logger.info(f"開始生成旁白描述 - 第{round_num}輪")
+                socketio.emit('show_loading', {'role': '旁白'})
+                time.sleep(1) # 模擬思考時間
+                
+                narrator_content = asyncio.run(conversation_manager.generate_narrator_description(session_id))
+                
+                conversation_manager.add_message(
+                    session_id, 'narrator', content=narrator_content, round_num=round_num
+                )
+                
+                socketio.emit('hide_loading')
+                socketio.emit('new_narrator_message', { # 發送新的旁白事件
+                    'content': narrator_content
+                })
+                logger.info(f"旁白發言完成 - 第{round_num}輪")
+                time.sleep(1) # 旁白和下一輪開始之間也休息一下
         
         # 對話完成
         socketio.emit('conversation_finished', {
@@ -342,6 +429,7 @@ def get_conversation_info(session_id):
                 'rounds': conversation['rounds'],
                 'current_round': conversation['current_round'],
                 'story_outline': conversation['story_outline'],
+                'narrator_mode': conversation['narrator_mode'], # NEW: 返回旁白模式狀態
                 'messages': conversation['messages']
             }
         })
