@@ -23,9 +23,9 @@
             --role2-bg: #f3f4f6;
             --role2-border: #d1d5db;
             --role2-text: #000000;
-            --narrator-bg: #f0fdf4; /* Light green for narrator in light mode */
-            --narrator-text: #166534; /* Dark green text */
-            --narrator-border: #a7f3d0; /* Green border */
+            --narrator-bg: #f0f2fd; /* Light green for narrator in light mode */
+            --narrator-text: #4b5068; /* Dark green text */
+            --narrator-border: #cbd0ec; /* Green border */
         }
 
         [data-theme="dark"] {
@@ -38,15 +38,15 @@
             --accent-hover: #3b82f6;
             --card-bg: #1e293b;
             --dot-color: rgba(100, 116, 139, 0.1);
-            --role1-bg: #261a1b;
+            --role1-bg: #1c1b1e;
             --role1-border: #000000;
             --role1-text: #e6e6e6;
             --role2-bg: #2e2e2e;
             --role2-border: #e6e6e6;
             --role2-text: #ffffff;
-            --narrator-bg: #064e3b; /* Darker green for narrator in dark mode */
-            --narrator-text: #dcfce7; /* Lighter green text */
-            --narrator-border: #0d9488; /* Teal border */
+            --narrator-bg: #3c4055; /* Darker green for narrator in dark mode */
+            --narrator-text: #dce4fc; /* Lighter green text */
+            --narrator-border: #737996; /* Teal border */
         }
 
         * {
@@ -509,6 +509,8 @@
         /* NEW: 旁白模式相關 CSS */
         .form-group.checkbox {
             margin-bottom: 15px;
+            margin-top: 15px;
+            margin-left: 15px;
             display: flex;
             align-items: center;
         }
@@ -545,7 +547,7 @@
         }
 
         .form-group.checkbox input[type="checkbox"]:checked::before {
-            content: '✔';
+            content: '';
             display: block;
             color: white;
             font-size: 14px;
@@ -613,6 +615,14 @@
                 <textarea id="topic" placeholder="請輸入想要討論的話題..."></textarea>
             </div>
 
+                        <!-- NEW: 旁白模式勾選框 -->
+            <div class="form-group checkbox">
+                <label>
+                    <input type="checkbox" id="narratorModeCheckbox">
+                    旁白模式 (描述場景與氛圍)
+                </label>
+            </div>
+
             <div class="settings-grid">
                 <div class="form-group">
                     <label for="wordLimit">字數上限</label>
@@ -635,13 +645,7 @@
                 </div>
             </div>
 
-            <!-- NEW: 旁白模式勾選框 -->
-            <div class="form-group checkbox">
-                <label>
-                    <input type="checkbox" id="narratorModeCheckbox">
-                    旁白模式 (描述場景與氛圍)
-                </label>
-            </div>
+
 
             <button id="startBtn" class="start-btn" onclick="startConversation()"><img src="/static/image/icon/icon-8.png" width="30" height="30" style="vertical-align: middle;"></button>
         </div>
