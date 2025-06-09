@@ -27,7 +27,7 @@ class ConversationManager:
     def __init__(self):
         self.conversations = {}
         # 使用 Gemini 1.5 Flash 模型，針對速度進行優化
-        self.model = genai.GenerativeModel('models/gemini-1.5-flash') 
+        self.model = genai.GenerativeModel('models/gemini-2.5-flash-preview-04-17-thinking') 
     
     def create_conversation(self, session_id, role1, role2, role1_description, role2_description, topic, word_limit, rounds, narrator_mode):
         """創建新的對話會話，新增 narrator_mode 參數"""
@@ -54,14 +54,11 @@ class ConversationManager:
             
             outline_prompt = f"""
 請根據以下設定，為一場對話生成一個詳細的故事大綱：
-
 角色設定：
 • {conversation['role1']}：{conversation['role1_description']}
 • {conversation['role2']}：{conversation['role2_description']}
-
 對話主題：{conversation['topic']}
 對話輪數：{conversation['rounds']}輪
-
 請生成一個完整的故事大綱，包含：
 1. 故事背景和情境設定
 2. 兩個角色在這個話題上的不同立場或觀點
@@ -70,7 +67,6 @@ class ConversationManager:
 5. 預期的對話結果或結論
 6. 大綱的字數不超過200字，以摘要的方式呈現劇情走向就好了。
 大綱要能引導{conversation['rounds']}輪的自然對話發展，每輪對話都要有意義和推進作用。
-
 請直接回答故事大綱，不需要其他說明，也不要試圖使用加粗等文字格式：
 """
             
@@ -109,31 +105,24 @@ class ConversationManager:
         
         prompt = f"""
 你現在要扮演 {character_name}。
-
 角色設定：
 {character_description}
-
 故事大綱：
 {story_outline}
-
 對話主題：{topic}
-
-{history_text}
-
-{progress_info}
+對話紀錄：{history_text}
+非語言的資訊：{progress_info}
 當前階段：{stage}
-
 請以 {character_name} 的身份，根據故事大綱的發展脈絡，針對當前對話內容進行回應。
-
 要求：
 1. 嚴格按照角色設定的性格、背景和特點來回應
 2. 回應要符合故事大綱的發展方向
-3. 考慮當前對話階段，確保對話有意義的推進
+3. 考慮當前對話階段，確保對話有意義的推進，不要重複上次的對話。
 4. 與前面的對話內容相關聯，保持邏輯連貫性
-5. 字數嚴格控制在 {word_limit} 字以內
+5. 字數嚴格控制在五個字到 {word_limit} 個字
 6. 展現角色獨特的觀點和立場
 7. 推動對話向故事大綱的方向發展
-
+8. 切勿與上一次的對話相同
 請直接以 {character_name} 的身份回應，不要添加任何前綴或說明：
 """
         
@@ -199,15 +188,13 @@ class ConversationManager:
 角色2: {conversation['role2']} ({conversation['role2_description']})
 故事大綱：{conversation['story_outline']}
 目前進度：第{conversation['current_round']}輪
-
 {recent_dialogue_text}
-
-請根據以上資訊和最新的對話內容，以客觀、生動的第三人稱視角，簡潔地描述當前場景的動作、氛圍變化，以及角色可能展現出的情緒或反應。
-
+請根據以上資訊和最新的對話內容，以客觀、生動的第三人稱視角，簡潔地描述當前場景的動作、非語言資訊、氛圍變化，以及角色可能展現出的情緒或反應。
 請注意：
 1. 描述內容應與對話進程和故事大綱保持一致。同時可適時的加入動作及角色非語言的互動好推進劇情
-2. 字數請控制在20-50字之間。
+2. 字數請控制在5-30字之間。
 3. 直接回答旁白內容，不要添加任何前綴、後綴或說明。
+4. 切勿與上一次的對話相同
 """
             # 使用 asyncio.to_thread 執行同步的 API 呼叫
             response = await asyncio.to_thread(self.model.generate_content, narrator_prompt)
